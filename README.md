@@ -79,7 +79,7 @@ Click ocean    →  unpin         →  panel closes
 
 ## Roadmap
 
-- [ ] Country search box
+- [x] Country search box
 - [ ] Continent filter
 - [ ] Dark mode
 - [ ] Zoom to country on click
