@@ -516,6 +516,45 @@
     }
 
     /* ================================================================
+       PANEL CONTENT FADE TRANSITION (Feature 2)
+       ================================================================ */
+    #panel-content { transition: opacity 0.15s ease; }
+
+    /* ================================================================
+       PANEL LOADING SKELETON (Feature 3)
+       ================================================================ */
+    .skeleton {
+      background: linear-gradient(90deg, #f0ede8 25%, #e8e4de 50%, #f0ede8 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+      border-radius: 4px;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ================================================================
+       FLOATING COUNTRY TOOLTIP (Feature 4)
+       ================================================================ */
+    .country-tooltip {
+      background: rgba(18,17,26,0.85);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      letter-spacing: 0.02em;
+    }
+
+    .country-tooltip::before { display: none; }
+    .leaflet-tooltip.country-tooltip { background: rgba(18,17,26,0.85); border: none; }
+    .leaflet-tooltip.country-tooltip::before { display: none; }
+
+    /* ================================================================
        PANEL — NO DATA STATE
        ================================================================ */
     .no-data-body {
@@ -531,6 +570,125 @@
       padding: 1px 5px;
       border-radius: 3px;
       font-size: 11px;
+    }
+
+    /* ================================================================
+       DARK MODE TOGGLE BUTTON (Feature 7)
+       ================================================================ */
+    #theme-toggle {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #9ca3af;
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+    #theme-toggle:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+    /* Dark mode CSS variables and overrides */
+    [data-theme="dark"] {
+      --bg-map:         #1a1f2e;
+      --bg-panel:       #12111a;
+      --bg-header:      #0a090f;
+      --text-primary:   #e8e8f0;
+      --text-secondary: #9ca3af;
+      --text-muted:     #6b7280;
+      --border-light:   #2a2838;
+      --border-medium:  #3a3848;
+      --shadow-panel:   -2px 0 24px rgba(0,0,0,0.4), -1px 0 0 #2a2838;
+    }
+    [data-theme="dark"] .leaflet-container { background: #1a1f2e !important; }
+    [data-theme="dark"] .country-header { background: linear-gradient(145deg, #1e1d2a 0%, #1a1928 100%); }
+    [data-theme="dark"] .tag { background: #2a2838; border-color: #3a3848; color: #9ca3af; }
+    [data-theme="dark"] .currency-block { background: #1e1d2a; border-color: #2a2838; }
+    [data-theme="dark"] .kv-val { color: #e8e8f0; }
+    [data-theme="dark"] .pin-hint { background: #1a1928; border-color: #2a2838; }
+    [data-theme="dark"] .leaflet-control-zoom a { background: #1e1d2a !important; color: #e8e8f0 !important; }
+    [data-theme="dark"] .leaflet-control-zoom a:hover { background: #2a2838 !important; }
+    [data-theme="dark"] #search-input { background: #0e0d18; border-color: rgba(255,255,255,0.08); }
+    [data-theme="dark"] #search-dropdown { background: #1e1d2a; border: 1px solid #2a2838; }
+    [data-theme="dark"] .search-result:hover,
+    [data-theme="dark"] .search-result.active { background: #2a2838; }
+    [data-theme="dark"] .search-result-name { color: #e8e8f0; }
+
+    /* ================================================================
+       MOBILE DRAG HANDLE (Feature 8)
+       ================================================================ */
+    #panel-drag-handle {
+      display: none;
+      padding: 10px 0 4px;
+      cursor: grab;
+      touch-action: none;
+      background: var(--bg-panel);
+      border-radius: 12px 12px 0 0;
+    }
+    .drag-bar {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-medium);
+      margin: 0 auto;
+    }
+
+    /* ================================================================
+       COUNTRY COMPARISON MODE (Feature 9)
+       ================================================================ */
+    #info-panel.comparison-mode { width: min(640px, 100vw); }
+
+    .compare-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px 0;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .compare-exit {
+      background: none;
+      border: 1px solid var(--border-medium);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .compare-exit:hover { border-color: var(--accent); color: var(--accent); }
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .compare-col {
+      padding: 16px 20px;
+      border-right: 1px solid var(--border-light);
+    }
+    .compare-col:last-child { border-right: none; }
+    .compare-col-flag { font-size: 32px; margin-bottom: 6px; }
+    .compare-col-name { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    .compare-col-name.primary { color: var(--accent); }
+    .compare-col-name.secondary { color: #7c3aed; }
+    .compare-row { margin-bottom: 10px; }
+    .compare-row .kv-key { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 2px; }
+    .compare-row .kv-val { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+
+    /* ================================================================
+       CURRENCY UPDATE NOTE (Feature 10)
+       ================================================================ */
+    .currency-update-note {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      letter-spacing: 0.02em;
     }
 
     /* ================================================================
@@ -550,6 +708,13 @@
 
       #info-panel.visible { transform: translateY(0); }
 
+      #panel-drag-handle { display: block; }
+
+      #info-panel {
+        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, height 0.2s ease;
+        border-radius: 16px 16px 0 0;
+      }
+
       .header-right { display: none; }
     }
   </style>
@@ -568,6 +733,7 @@
       <span class="logo-sub">&nbsp;Interactive Explorer</span>
     </div>
     <div class="header-right">
+      <button id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
       <div class="hint-dot" title="Hover or tap a country to explore"></div>
       <div class="search-wrapper">
         <span class="search-icon">
@@ -599,6 +765,7 @@
      INFO PANEL  (lives outside #app so it overlays the map correctly)
      ============================================================ -->
 <div id="info-panel" role="complementary" aria-label="Country information">
+  <div id="panel-drag-handle" aria-hidden="true"><div class="drag-bar"></div></div>
   <div id="panel-content"></div>
 </div>
 
@@ -1078,6 +1245,19 @@ const STYLES = {
 };
 
 /* ================================================================
+   CONTINENT COLOURS (Feature 6)
+   Subtle distinct tints for each continent in the default state.
+   ================================================================ */
+const CONTINENT_COLORS = {
+  'North America': '#c8d4b8',
+  'South America': '#c4cfa8',
+  'Europe':        '#b8c4d4',
+  'Africa':        '#d4c4a0',
+  'Asia':          '#c0ccc0',
+  'Oceania':       '#a8c8cc'
+};
+
+/* ================================================================
    APPLICATION STATE
    — hoverCode:  ISO_A2 of the country currently under the cursor
    — lockedCode: ISO_A2 of the click-pinned country (persists after mouse-out)
@@ -1086,6 +1266,7 @@ const STYLES = {
    ================================================================ */
 let hoverCode    = null;
 let lockedCode   = null;
+let compareCode  = null;
 let geoJsonLayer = null;
 const layersByCode = {};
 
@@ -1109,6 +1290,9 @@ const map = L.map('map', {
 
 // Move zoom control to bottom-left so it doesn't clash with the info panel
 map.zoomControl.setPosition('bottomleft');
+
+// Initialise theme toggle before GeoJSON fetch (Feature 7)
+initTheme();
 
 // Clicking empty ocean/space clears the pin
 map.on('click', function () {
@@ -1160,6 +1344,7 @@ fetch(GEOJSON_URL)
     map.fitBounds([[-60, -180], [82, 180]]);
     hideLoading();
     initSearch();
+    initDragHandle();
   })
   .catch(function (err) {
     console.error('GeoJSON load failed:', err);
@@ -1175,6 +1360,16 @@ function bindFeatureEvents(feature, layer) {
     mouseover: onHoverEnter,
     mouseout:  onHoverLeave,
     click:     onCountryClick
+  });
+
+  // Feature 4: Floating country name tooltip
+  var tooltipName = feature.properties.name || feature.properties['ISO3166-1-Alpha-2'] || '';
+  layer.bindTooltip(tooltipName, {
+    sticky: false,
+    permanent: false,
+    className: 'country-tooltip',
+    direction: 'center',
+    offset: [0, 0]
   });
 }
 
@@ -1201,11 +1396,23 @@ function onCountryClick(e) {
 
   var code = resolveCode(e.target.feature);
 
+  // Feature 9: Shift+click for comparison mode
+  if (e.originalEvent && e.originalEvent.shiftKey && lockedCode && code !== lockedCode) {
+    compareCode = (compareCode === code) ? null : code;
+    updateStyles();
+    updatePanel();
+    return;
+  }
+
+  // Normal click behaviour
+  compareCode = null;
   if (lockedCode === code) {
     // Clicking the same pinned country unlocks it
     lockedCode = null;
   } else {
     lockedCode = code;
+    // Feature 5: Fly-to-country on click
+    map.flyToBounds(e.target.getBounds(), { padding: [80, 80], duration: 0.8, easeLinearity: 0.35 });
   }
 
   updateStyles();
@@ -1243,20 +1450,35 @@ function updateStyles() {
 
   geoJsonLayer.eachLayer(function (layer) {
     var code = resolveCode(layer.feature);
+    var el   = layer.getElement ? layer.getElement() : null;
 
     if (!effective) {
-      // Nothing active — reset everything to default
-      layer.setStyle(STYLES.default);
+      // Nothing active — reset everything to default with continent tinting (Feature 6)
+      var countryData = COUNTRY_DATA[code];
+      var continent   = countryData ? countryData.continent : null;
+      var continentFill = continent ? (CONTINENT_COLORS[continent] || STYLES.default.fillColor) : STYLES.default.fillColor;
+      layer.setStyle(Object.assign({}, STYLES.default, { fillColor: continentFill }));
+      // Feature 1: remove drop-shadow when nothing active
+      if (el) el.style.filter = '';
 
     } else if (code === effective) {
       // This is the active country
       layer.setStyle(STYLES.active);
       // Bring to front so its thick border renders on top
       if (layer.bringToFront) layer.bringToFront();
+      // Feature 1: apply pop drop-shadow
+      if (el) el.style.filter = 'drop-shadow(0 4px 12px rgba(37,99,235,0.5))';
+
+    } else if (code === compareCode) {
+      // Feature 9: comparison country gets secondary accent colour
+      layer.setStyle({ fillColor: '#7c3aed', fillOpacity: 0.88, color: '#6d28d9', weight: 2.5, smoothFactor: 1 });
+      if (layer.bringToFront) layer.bringToFront();
+      if (el) el.style.filter = 'drop-shadow(0 4px 12px rgba(124,58,237,0.5))';
 
     } else {
       // Everything else gets muted
       layer.setStyle(STYLES.muted);
+      if (el) el.style.filter = '';
     }
   });
 }
@@ -1272,17 +1494,44 @@ function updatePanel() {
 
   if (!effective) {
     panel.classList.remove('visible');
+    panel.classList.remove('comparison-mode');
     return;
   }
 
-  // Look up facts in COUNTRY_DATA
-  var data = lookupData(effective);
+  // Feature 9: Comparison mode — show two country cards side by side
+  if (lockedCode && compareCode) {
+    var dataA = lookupData(lockedCode);
+    var dataB = lookupData(compareCode);
+    var nameA = dataA ? dataA.name : nameFromCode(lockedCode);
+    var nameB = dataB ? dataB.name : nameFromCode(compareCode);
+    // Feature 2: fade transition
+    content.style.opacity = '0';
+    content.innerHTML = renderComparison(dataA, nameA, dataB, nameB);
+    panel.classList.add('visible');
+    panel.classList.add('comparison-mode');
+    requestAnimationFrame(function () { content.style.opacity = '1'; });
+    return;
+  }
 
-  // Get a human-readable name even if we have no facts
-  var displayName = data ? data.name : nameFromCode(effective);
+  panel.classList.remove('comparison-mode');
 
-  content.innerHTML = renderCard(data, displayName);
+  // Feature 2: start fade out
+  content.style.opacity = '0';
+
+  // Feature 3: show skeleton briefly before real content
+  content.innerHTML = renderSkeleton();
   panel.classList.add('visible');
+
+  setTimeout(function () {
+    // Look up facts in COUNTRY_DATA
+    var data = lookupData(effective);
+    // Get a human-readable name even if we have no facts
+    var displayName = data ? data.name : nameFromCode(effective);
+
+    content.innerHTML = renderCard(data, displayName);
+    // Feature 2: fade in
+    requestAnimationFrame(function () { content.style.opacity = '1'; });
+  }, 80);
 }
 
 /* ================================================================
@@ -1400,7 +1649,7 @@ function renderCard(data, displayName) {
       '<div class="tag-list">' + langs + '</div>' +
     '</div>' +
 
-    // Currency
+    // Currency (Feature 10: upgraded with update note)
     '<div class="data-section">' +
       '<div class="section-label">Currency</div>' +
       '<div class="currency-block">' +
@@ -1409,6 +1658,7 @@ function renderCard(data, displayName) {
           '<span class="currency-name">' + esc(data.currency_name) + '</span>' +
         '</div>' +
         '<div class="currency-rate">' + esc(data.currency_value_note) + '</div>' +
+        '<div class="currency-update-note">Exchange rate — static reference</div>' +
       '</div>' +
     '</div>' +
 
@@ -1429,7 +1679,7 @@ function pinHint(isLocked) {
           '0 1 15.586 15H13v-2.586a1 1 0 0 1 .293-.707L16 9.586V7h-2.586a1 1 0 0 ' +
           '1-.707-.293L11.414 5H11V3a2 2 0 0 1 2-2h3z"/>' +
         '</svg>' +
-        'Pinned — click country again or click ocean to unpin' +
+        'Pinned — Shift+click another country to compare' +
       '</div>'
     );
   }
@@ -1595,7 +1845,8 @@ function selectCountry(code) {
   updatePanel();
 
   if (layersByCode[code]) {
-    map.fitBounds(layersByCode[code].getBounds(), { padding: [60, 60] });
+    // Feature 5: smooth fly-to animation from search
+    map.flyToBounds(layersByCode[code].getBounds(), { padding: [80, 80], duration: 0.8, easeLinearity: 0.35 });
   }
 
   var input = document.getElementById('search-input');
@@ -1608,6 +1859,132 @@ function hideDropdown() {
   if (!dropdown) return;
   while (dropdown.firstChild) dropdown.removeChild(dropdown.firstChild);
   dropdown.classList.remove('open');
+}
+
+/* ================================================================
+   RENDER SKELETON (Feature 3)
+   Shown briefly before real content while the panel fades in.
+   ================================================================ */
+function renderSkeleton() {
+  return (
+    '<div class="country-header">' +
+      '<div class="skeleton" style="width:48px;height:48px;border-radius:8px;margin-bottom:10px;"></div>' +
+      '<div class="skeleton" style="width:70%;height:20px;margin-bottom:8px;"></div>' +
+      '<div class="skeleton" style="width:40%;height:14px;"></div>' +
+    '</div>' +
+    '<div class="data-section">' +
+      '<div class="skeleton" style="width:50px;height:10px;margin-bottom:10px;"></div>' +
+      '<div class="kv-grid">' +
+        '<div class="kv-item"><div class="skeleton" style="height:30px;"></div></div>' +
+        '<div class="kv-item"><div class="skeleton" style="height:30px;"></div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="data-section">' +
+      '<div class="skeleton" style="width:60px;height:10px;margin-bottom:10px;"></div>' +
+      '<div style="display:flex;gap:6px;">' +
+        '<div class="skeleton" style="width:70px;height:26px;border-radius:20px;"></div>' +
+        '<div class="skeleton" style="width:80px;height:26px;border-radius:20px;"></div>' +
+        '<div class="skeleton" style="width:60px;height:26px;border-radius:20px;"></div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ================================================================
+   RENDER COMPARISON LAYOUT (Feature 9)
+   Shows two country cards side by side.
+   ================================================================ */
+function renderComparison(dataA, nameA, dataB, nameB) {
+  function colHTML(data, name, colorClass) {
+    var flag     = data ? data.flag_emoji       : '🌐';
+    var capital  = data ? esc(data.capital)     : '—';
+    var pop      = data ? esc(data.population)  : '—';
+    var currency = data ? (esc(data.currency_code) + ' — ' + esc(data.currency_name)) : '—';
+    return (
+      '<div class="compare-col">' +
+        '<div class="compare-col-flag">' + flag + '</div>' +
+        '<div class="compare-col-name ' + colorClass + '">' + esc(name) + '</div>' +
+        '<div class="compare-row"><div class="kv-key">Capital</div><div class="kv-val">' + capital + '</div></div>' +
+        '<div class="compare-row"><div class="kv-key">Population</div><div class="kv-val">' + pop + '</div></div>' +
+        '<div class="compare-row"><div class="kv-key">Currency</div><div class="kv-val">' + currency + '</div></div>' +
+      '</div>'
+    );
+  }
+
+  return (
+    '<div class="compare-header">' +
+      '<span>🔵 ' + esc(nameA) + ' &nbsp;vs&nbsp; 🟣 ' + esc(nameB) + '</span>' +
+      '<button class="compare-exit" onclick="exitComparison()">&#x2715; Exit comparison</button>' +
+    '</div>' +
+    '<div class="compare-grid">' +
+      colHTML(dataA, nameA, 'primary') +
+      colHTML(dataB, nameB, 'secondary') +
+    '</div>'
+  );
+}
+
+function exitComparison() {
+  compareCode = null;
+  updateStyles();
+  updatePanel();
+}
+
+/* ================================================================
+   THEME TOGGLE (Feature 7)
+   ================================================================ */
+function initTheme() {
+  var btn   = document.getElementById('theme-toggle');
+  if (!btn) return;
+  var saved = localStorage.getItem('atlas-theme') || 'light';
+  if (saved === 'dark') {
+    document.documentElement.dataset.theme = 'dark';
+    btn.textContent = '☀️';
+  }
+  btn.addEventListener('click', function () {
+    var isDark = document.documentElement.dataset.theme === 'dark';
+    document.documentElement.dataset.theme = isDark ? 'light' : 'dark';
+    btn.textContent = isDark ? '🌙' : '☀️';
+    localStorage.setItem('atlas-theme', isDark ? 'light' : 'dark');
+    if (geoJsonLayer) { updateStyles(); }
+  });
+}
+
+/* ================================================================
+   DRAG HANDLE FOR MOBILE BOTTOM SHEET (Feature 8)
+   ================================================================ */
+function initDragHandle() {
+  if (window.innerWidth > 768) return;
+  var handle = document.getElementById('panel-drag-handle');
+  var panel  = document.getElementById('info-panel');
+  if (!handle) return;
+  var startY = 0, startH = 0, dragging = false;
+  var SNAP_HEIGHTS = [0.3, 0.55, 0.82];
+
+  handle.addEventListener('touchstart', function (e) {
+    startY   = e.touches[0].clientY;
+    startH   = panel.offsetHeight;
+    dragging = true;
+    panel.style.transition = 'none';
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function (e) {
+    if (!dragging) return;
+    var dy   = startY - e.touches[0].clientY;
+    var newH = Math.max(80, Math.min(window.innerHeight * 0.9, startH + dy));
+    panel.style.height = newH + 'px';
+  }, { passive: true });
+
+  document.addEventListener('touchend', function () {
+    if (!dragging) return;
+    dragging = false;
+    panel.style.transition = '';
+    var h    = panel.offsetHeight;
+    var frac = h / window.innerHeight;
+    var nearest = SNAP_HEIGHTS.reduce(function (a, b) {
+      return Math.abs(b - frac) < Math.abs(a - frac) ? b : a;
+    });
+    panel.style.height = (nearest * window.innerHeight) + 'px';
+  });
 }
 
 /*

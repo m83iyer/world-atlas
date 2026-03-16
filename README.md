@@ -80,11 +80,17 @@ Click ocean    →  unpin         →  panel closes
 ## Roadmap
 
 - [x] Country search box
-- [ ] Continent filter
-- [ ] Dark mode
-- [ ] Zoom to country on click
+- [x] Continent colour tinting (subtle per-continent default colours)
+- [x] Dark mode (moon/sun toggle with localStorage persistence)
+- [x] Zoom to country on click (smooth flyToBounds animation)
+- [x] Country comparison mode (Shift+click a second country)
+- [x] Country pop on selection (drop-shadow lift effect)
+- [x] Smooth flashcard transitions (cross-fade on panel content change)
+- [x] Panel loading skeleton (shimmer animation before content renders)
+- [x] Floating country name tooltip (hover tooltip centred on country)
+- [x] Mobile bottom sheet drag handle (snap positions for mobile panel)
+- [x] Currency section visual upgrade (exchange rate note added)
 - [ ] Live exchange rates via open.er-api.com
-- [ ] Country comparison mode
 - [ ] Export country card as image
 - [ ] Full offline mode (local GeoJSON)
 - [ ] Keyboard accessibility (tab, Enter, Escape)
