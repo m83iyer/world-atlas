@@ -1300,13 +1300,14 @@ map.zoomControl.setPosition('bottomleft');
 // Initialise theme toggle before GeoJSON fetch (Feature 7)
 initTheme();
 
-// Clicking empty ocean/space clears the pin
+// Clicking empty ocean/space clears the pin and flies back to world view
 map.on('click', function () {
-  if (lockedCode !== null) {
-    lockedCode = null;
-    updateStyles();
-    updatePanel();
-  }
+  lockedCode  = null;
+  compareCode = null;
+  hoverCode   = null;
+  updateStyles();
+  updatePanel();
+  map.flyTo([20, 0], 2, { duration: 0.9, easeLinearity: 0.35 });
 });
 
 /* ================================================================
@@ -1410,15 +1411,13 @@ function onCountryClick(e) {
     return;
   }
 
-  // Normal click behaviour
+  // Normal click behaviour — pin/unpin panel, no zoom
   compareCode = null;
   if (lockedCode === code) {
     // Clicking the same pinned country unlocks it
     lockedCode = null;
   } else {
     lockedCode = code;
-    // Feature 5: Fly-to-country on click
-    map.flyToBounds(e.target.getBounds(), { padding: [80, 80], duration: 0.8, easeLinearity: 0.35 });
   }
 
   updateStyles();
