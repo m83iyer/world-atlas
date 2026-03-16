@@ -45,9 +45,6 @@ Or double-click `index.html` in Finder.
 ```
 world-atlas/
 ├── index.html          # Complete app — HTML + CSS + JS in one file
-├── tools/              # WAT framework Python automation scripts
-├── workflows/          # WAT framework SOP markdown files
-├── requirements.txt    # Python dependencies
 └── README.md
 ```
 
@@ -149,18 +146,6 @@ fetch('https://open.er-api.com/v6/latest/USD')
 | Language | Vanilla JavaScript (ES5-compatible) |
 | Styling | CSS custom properties, no preprocessor |
 | Fonts | System UI stack — no external font CDN |
-
----
-
-## WAT Framework
-
-This project is built inside the **WAT framework** (Workflows · Agents · Tools) — an architecture that separates AI reasoning from deterministic code execution.
-
-```
-workflows/    ← Markdown SOPs (what to do and how)
-tools/        ← Python scripts (deterministic execution)
-index.html    ← Deliverable (what you see)
-```
 
 ---
 
