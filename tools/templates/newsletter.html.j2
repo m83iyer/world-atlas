@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>{{ topic }}</title>
+  <!--[if mso]>
+  <noscript>
+    <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    /* ── Reset ──────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0; mso-table-rspace: 0; }
+    img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    a { color: #4A6CF7; }
+
+    /* ── Base ───────────────────────────────────────────── */
+    body {
+      background-color: #F8F9FF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #1A1A2E;
+    }
+    .wrapper { width: 100%; background-color: #F8F9FF; padding: 32px 16px; }
+    .container { max-width: 680px; margin: 0 auto; }
+
+    /* ── Hero ───────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #2D3A8C 0%, #1A1A2E 100%);
+      border-radius: 16px 16px 0 0;
+      padding: 48px 40px 40px;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      background: rgba(74,108,247,0.3);
+      color: #A8C0FB;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 100px;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      color: #FFFFFF;
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .hero-meta {
+      color: #7B9FF9;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .hero-meta span { margin: 0 8px; }
+
+    /* ── Body card ──────────────────────────────────────── */
+    .card {
+      background: #FFFFFF;
+      padding: 40px;
+      border-left: 1px solid #E8ECFF;
+      border-right: 1px solid #E8ECFF;
+    }
+    .card-last {
+      border-radius: 0 0 16px 16px;
+      border-bottom: 1px solid #E8ECFF;
+      padding-bottom: 48px;
+    }
+
+    /* ── Summary block ──────────────────────────────────── */
+    .summary {
+      background: #F0F4FF;
+      border-left: 4px solid #4A6CF7;
+      border-radius: 0 8px 8px 0;
+      padding: 20px 24px;
+      margin-bottom: 36px;
+    }
+    .summary p {
+      color: #2D3A8C;
+      font-size: 15px;
+      font-weight: 500;
+      line-height: 1.65;
+    }
+
+    /* ── Section ────────────────────────────────────────── */
+    .section { margin-bottom: 40px; }
+    .section h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1A1A2E;
+      letter-spacing: -0.01em;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #E8ECFF;
+    }
+    .section p {
+      color: #374151;
+      font-size: 15px;
+      line-height: 1.75;
+      margin-bottom: 12px;
+    }
+    .section p:last-child { margin-bottom: 0; }
+
+    /* ── Pull quote ─────────────────────────────────────── */
+    .pull-quote {
+      background: #F8F9FF;
+      border-left: 3px solid #4A6CF7;
+      margin: 20px 0;
+      padding: 16px 20px;
+      border-radius: 0 6px 6px 0;
+    }
+    .pull-quote p {
+      color: #2D3A8C;
+      font-style: italic;
+      font-size: 15px;
+      font-weight: 500;
+      margin: 0 !important;
+    }
+
+    /* ── Stat bar ───────────────────────────────────────── */
+    .stat-bar {
+      display: table;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 12px 0;
+      margin: 0 -12px 40px;
+    }
+    .stat-cell {
+      display: table-cell;
+      width: 33.33%;
+      background: #F0F4FF;
+      border: 1px solid #D6E4FF;
+      border-radius: 10px;
+      padding: 20px 16px;
+      text-align: center;
+      vertical-align: top;
+    }
+    .stat-value {
+      display: block;
+      font-size: 28px;
+      font-weight: 800;
+      color: #2D3A8C;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6B7280;
+      margin-bottom: 6px;
+    }
+    .stat-context {
+      display: block;
+      font-size: 12px;
+      color: #9CA3AF;
+      line-height: 1.4;
+    }
+
+    /* ── Infographics ───────────────────────────────────── */
+    .infographic-section { margin-bottom: 40px; }
+    .infographic-section h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1A1A2E;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #E8ECFF;
+    }
+    .chart-wrap {
+      margin-bottom: 28px;
+      background: #F8F9FF;
+      border: 1px solid #E8ECFF;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .chart-wrap img { width: 100%; display: block; }
+    .chart-caption {
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #9CA3AF;
+      border-top: 1px solid #E8ECFF;
+      font-style: italic;
+    }
+
+    /* ── Takeaways ──────────────────────────────────────── */
+    .takeaways { margin-bottom: 8px; }
+    .takeaways h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1A1A2E;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #E8ECFF;
+    }
+    .takeaway-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      padding: 14px 16px;
+      background: #F8F9FF;
+      border-radius: 8px;
+      border: 1px solid #E8ECFF;
+    }
+    .takeaway-dot {
+      flex-shrink: 0;
+      width: 8px;
+      height: 8px;
+      background: #4A6CF7;
+      border-radius: 50%;
+      margin-top: 6px;
+    }
+    .takeaway-item p {
+      color: #374151;
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* ── Divider ────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid #E8ECFF;
+      margin: 36px 0;
+    }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    .footer {
+      background: #2D3A8C;
+      border-radius: 0 0 16px 16px;
+      padding: 32px 40px;
+      text-align: center;
+    }
+    .footer p {
+      color: #7B9FF9;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .footer a { color: #A8C0FB; }
+    .footer .generated-note {
+      color: rgba(123,159,249,0.6);
+      font-size: 11px;
+      margin-top: 10px;
+    }
+
+    /* ── Freshness warning ──────────────────────────────── */
+    .stale-warning {
+      background: #FFF7ED;
+      border: 1px solid #FED7AA;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #92400E;
+    }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media only screen and (max-width: 600px) {
+      .hero { padding: 32px 24px 28px; }
+      .hero h1 { font-size: 24px; }
+      .card { padding: 28px 20px; }
+      .stat-bar { display: block; margin: 0 0 32px; }
+      .stat-cell { display: block; width: 100%; margin-bottom: 10px; }
+      .footer { padding: 24px 20px; border-radius: 0 0 12px 12px; }
+    }
+
+    /* ── Dark mode ──────────────────────────────────────── */
+    @media (prefers-color-scheme: dark) {
+      body, .wrapper { background-color: #0F1117 !important; }
+      .card { background-color: #1A1A2E !important; border-color: #2D3A8C !important; }
+      .card-last { border-color: #2D3A8C !important; }
+      .section h2, .infographic-section h2, .takeaways h2 { color: #E8ECFF !important; border-color: #2D3A8C !important; }
+      .section p, .takeaway-item p { color: #C4CCEE !important; }
+      .summary { background: #1E2547 !important; }
+      .stat-cell { background: #1E2547 !important; border-color: #2D3A8C !important; }
+      .takeaway-item { background: #1E2547 !important; border-color: #2D3A8C !important; }
+      .pull-quote { background: #1E2547 !important; }
+      .chart-wrap { background: #1E2547 !important; border-color: #2D3A8C !important; }
+      .chart-caption { color: #6B7280 !important; border-color: #2D3A8C !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Preheader (hidden in email body, shows in inbox preview) -->
+  <span style="display:none;font-size:1px;color:#F8F9FF;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+    {{ preheader }}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </span>
+
+  <div class="wrapper">
+    <div class="container">
+
+      <!-- ── HERO ── -->
+      <div class="hero">
+        <div class="hero-eyebrow">Newsletter</div>
+        <h1>{{ topic }}</h1>
+        <div class="hero-meta">
+          <span>{{ date }}</span>
+          <span>·</span>
+          <span>{{ reading_time }}</span>
+          <span>·</span>
+          <span>{{ audience | title }} Edition</span>
+        </div>
+      </div>
+
+      <!-- ── BODY CARD ── -->
+      <div class="card">
+
+        <!-- Stale sources warning -->
+        {% set stale_count = sources | selectattr('fresh', 'equalto', false) | list | length %}
+        {% if stale_count > 0 %}
+        <div class="stale-warning">
+          ⚠ {{ stale_count }} source{{ 's' if stale_count > 1 }} in this newsletter {{ 'are' if stale_count > 1 else 'is' }} older than 90 days — verify before publishing.
+        </div>
+        {% endif %}
+
+        <!-- Executive summary -->
+        <div class="summary">
+          <p>{{ summary }}</p>
+        </div>
+
+        <!-- Content sections -->
+        {% for section in sections %}
+        <div class="section">
+          <h2>{{ section.title }}</h2>
+          {% for paragraph in section.body.split('\n\n') %}
+          <p>{{ paragraph }}</p>
+          {% endfor %}
+          {% if section.pull_quote %}
+          <div class="pull-quote">
+            <p>"{{ section.pull_quote }}"</p>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+        <!-- Data snapshot -->
+        {% if stats %}
+        <hr class="divider" />
+        <div class="stat-bar">
+          {% for stat in stats[:3] %}
+          <div class="stat-cell">
+            <span class="stat-value">{{ stat.value }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+            <span class="stat-context">{{ stat.context }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+      </div><!-- /card -->
+
+      <!-- ── INFOGRAPHICS CARD ── -->
+      {% if chart_paths %}
+      <div class="card">
+        <div class="infographic-section">
+          <h2>By the Numbers</h2>
+          {% for path in chart_paths %}
+          <div class="chart-wrap">
+            <img src="{{ path }}" alt="Chart {{ loop.index }}" />
+            {% if charts[loop.index0] is defined %}
+            <div class="chart-caption">{{ charts[loop.index0].title }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ── TAKEAWAYS + FOOTER CARD ── -->
+      <div class="card card-last">
+
+        <!-- Key takeaways -->
+        <div class="takeaways">
+          <h2>Key Takeaways</h2>
+          {% for item in takeaways %}
+          <div class="takeaway-item">
+            <div class="takeaway-dot"></div>
+            <p>{{ item }}</p>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Sources -->
+        {% if sources %}
+        <hr class="divider" />
+        <div class="section">
+          <h2>Sources</h2>
+          {% for source in sources %}
+          <p style="font-size:13px; color:#9CA3AF;">
+            {% if not source.fresh %}<span style="color:#F59E0B;">⚠ </span>{% endif %}
+            <a href="{{ source.url }}" style="color:#4A6CF7;">{{ source.title }}</a>
+            {% if source.date %}<span style="color:#D1D5DB;"> — {{ source.date }}</span>{% endif %}
+          </p>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+      </div>
+
+      <!-- ── FOOTER ── -->
+      <div class="footer">
+        <p>Generated on {{ date }} &nbsp;·&nbsp; {{ reading_time }}</p>
+        <p class="generated-note">Created with the WAT Newsletter Automation workflow</p>
+      </div>
+
+    </div><!-- /container -->
+  </div><!-- /wrapper -->
+</body>
+</html>
