@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World Atlas — Interactive Country Explorer</title>
+
+  <!-- Leaflet CSS (split into its own file later: styles/leaflet.css) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    /* ================================================================
+       DESIGN TOKENS — change these to retheme the entire app
+       ================================================================ */
+    :root {
+      --accent:         #2563eb;
+      --accent-dark:    #1d4ed8;
+      --accent-light:   #dbeafe;
+      --bg-map:         #e8e2d5;
+      --bg-panel:       #ffffff;
+      --bg-header:      #12111a;
+      --text-primary:   #1a1a2e;
+      --text-secondary: #6b7280;
+      --text-muted:     #9ca3af;
+      --border-light:   #e5e0d8;
+      --border-medium:  #d1cdc4;
+      --shadow-panel:   -2px 0 24px rgba(0,0,0,0.10), -1px 0 0 #e5e0d8;
+      --radius-card:    10px;
+      --radius-tag:     20px;
+      --panel-width:    340px;
+      --header-height:  56px;
+      --font:           system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* ================================================================
+       RESET
+       ================================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg-map);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    /* ================================================================
+       APP SHELL
+       ================================================================ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ================================================================
+       HEADER
+       ================================================================ */
+    #header {
+      height: var(--header-height);
+      background: var(--bg-header);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+      z-index: 1000;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #f0f0f8;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: #55546a;
+      font-weight: 400;
+    }
+
+    .header-hint {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: #55546a;
+    }
+
+    .hint-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.25; }
+    }
+
+    /* ================================================================
+       MAP WRAPPER
+       ================================================================ */
+    #map-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Leaflet container background matches our map color */
+    .leaflet-container {
+      background: var(--bg-map) !important;
+      cursor: default;
+    }
+
+    .leaflet-grab    { cursor: grab;    }
+    .leaflet-grabbing{ cursor: grabbing; }
+
+    /* Clean up zoom control */
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.13) !important;
+      border-radius: 8px !important;
+      overflow: hidden;
+    }
+
+    .leaflet-control-zoom a {
+      background: #ffffff !important;
+      color: var(--text-primary) !important;
+      border: none !important;
+      font-size: 16px !important;
+      width: 32px !important;
+      height: 32px !important;
+      line-height: 32px !important;
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: #f4f0eb !important;
+    }
+
+    .leaflet-control-zoom-in  { border-bottom: 1px solid #eee !important; }
+
+    .leaflet-control-attribution {
+      background: rgba(255,255,255,0.65) !important;
+      font-size: 10px !important;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ================================================================
+       LOADING OVERLAY
+       ================================================================ */
+    #loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-map);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 800;
+      transition: opacity 0.45s ease;
+    }
+
+    #loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid var(--border-medium);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    /* ================================================================
+       INFO PANEL — fixed right side
+       To split into panel component later: extract into panel.js + panel.css
+       ================================================================ */
+    #info-panel {
+      position: fixed;
+      top: var(--header-height);
+      right: 0;
+      width: var(--panel-width);
+      height: calc(100vh - var(--header-height));
+      background: var(--bg-panel);
+      box-shadow: var(--shadow-panel);
+      z-index: 900;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-medium) transparent;
+
+      /* Hidden state — slides in from right */
+      transform: translateX(100%);
+      opacity: 0;
+      transition:
+        transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity   0.22s ease;
+    }
+
+    #info-panel::-webkit-scrollbar       { width: 4px; }
+    #info-panel::-webkit-scrollbar-track { background: transparent; }
+    #info-panel::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 2px; }
+
+    /* Visible state */
+    #info-panel.visible {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    /* ================================================================
+       PANEL — COUNTRY HEADER
+       ================================================================ */
+    .country-header {
+      padding: 26px 24px 20px;
+      border-bottom: 1px solid var(--border-light);
+      background: linear-gradient(145deg, #fafaf8 0%, #f3efe8 100%);
+    }
+
+    .country-flag {
+      font-size: 46px;
+      line-height: 1;
+      margin-bottom: 10px;
+      display: block;
+      /* Crisp emoji rendering */
+      text-rendering: optimizeLegibility;
+    }
+
+    .country-name {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .continent-badge {
+      display: inline-flex;
+      align-items: center;
+      background: var(--accent-light);
+      color: var(--accent-dark);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: var(--radius-tag);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ================================================================
+       PANEL — DATA SECTIONS
+       ================================================================ */
+    .data-section {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .data-section:last-of-type { border-bottom: none; }
+
+    .section-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* Two-column grid for key/value pairs */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 12px;
+    }
+
+    .kv-item { display: flex; flex-direction: column; gap: 3px; }
+    .kv-item.full { grid-column: 1 / -1; }
+
+    .kv-key {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+    }
+
+    .kv-val {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    /* ================================================================
+       PANEL — TAGS (cities, languages)
+       ================================================================ */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      background: #f4f0eb;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: var(--radius-tag);
+      border: 1px solid var(--border-light);
+    }
+
+    /* ================================================================
+       PANEL — CURRENCY BLOCK
+       ================================================================ */
+    .currency-block {
+      background: #f8f6f2;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-card);
+      padding: 13px 14px;
+    }
+
+    .currency-top {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .currency-code {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+    }
+
+    .currency-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .currency-rate {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      letter-spacing: 0.01em;
+    }
+
+    /* ================================================================
+       PANEL — PIN HINT BAR
+       ================================================================ */
+    .pin-hint {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 11px 24px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: #fafaf8;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .pin-hint.is-locked {
+      color: var(--accent-dark);
+      background: var(--accent-light);
+    }
+
+    /* ================================================================
+       PANEL — NO DATA STATE
+       ================================================================ */
+    .no-data-body {
+      padding: 28px 24px;
+      text-align: center;
+    }
+
+    .no-data-icon  { font-size: 38px; opacity: 0.35; margin-bottom: 10px; }
+    .no-data-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+    .no-data-text  { font-size: 12.5px; color: var(--text-secondary); line-height: 1.65; }
+    .no-data-text code {
+      background: #f0ede8;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    /* ================================================================
+       RESPONSIVE — mobile: panel slides up from bottom
+       ================================================================ */
+    @media (max-width: 768px) {
+      :root { --panel-width: 100vw; }
+
+      #info-panel {
+        top: auto;
+        bottom: 0;
+        height: 55vh;
+        width: 100%;
+        transform: translateY(110%);
+        box-shadow: 0 -4px 30px rgba(0,0,0,0.14);
+      }
+
+      #info-panel.visible { transform: translateY(0); }
+
+      .header-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header id="header">
+    <div class="logo">
+      <div class="logo-icon">🌍</div>
+      <span class="logo-text">World Atlas</span>
+      <span class="logo-sub">&nbsp;Interactive Explorer</span>
+    </div>
+    <div class="header-hint">
+      <div class="hint-dot"></div>
+      Hover or tap a country to explore
+    </div>
+  </header>
+
+  <!-- ============================================================
+       MAP
+       ============================================================ -->
+  <div id="map-wrapper">
+    <div id="map"></div>
+
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading world map&hellip;</div>
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- ============================================================
+     INFO PANEL  (lives outside #app so it overlays the map correctly)
+     ============================================================ -->
+<div id="info-panel" role="complementary" aria-label="Country information">
+  <div id="panel-content"></div>
+</div>
+
+<!-- Leaflet JS (split out later: <script src="lib/leaflet.js"></script>) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+'use strict';
+
+/* ================================================================
+   COUNTRY DATA
+   — 20 prototype entries keyed by ISO Alpha-2 code
+   — To expand: add more objects here with the same shape.
+     Zero other code changes needed.
+   — To externalise: move this object to countries.json and
+     fetch() it alongside the GeoJSON below.
+   ================================================================ */
+const COUNTRY_DATA = {
+
+  /* ── NORTH AMERICA ─────────────────────────────────────── */
+  "US": {
+    name: "United States",
+    continent: "North America",
+    capital: "Washington, D.C.",
+    top_cities: ["New York", "Los Angeles", "Chicago"],
+    population: "335 million",
+    languages: ["English", "Spanish", "French"],
+    currency_name: "US Dollar",
+    currency_code: "USD",
+    currency_value_note: "Global reserve currency",
+    flag_emoji: "🇺🇸"
+  },
+  "CA": {
+    name: "Canada",
+    continent: "North America",
+    capital: "Ottawa",
+    top_cities: ["Toronto", "Vancouver", "Montréal"],
+    population: "40 million",
+    languages: ["English", "French", "Punjabi"],
+    currency_name: "Canadian Dollar",
+    currency_code: "CAD",
+    currency_value_note: "1 CAD ≈ 0.73 USD",
+    flag_emoji: "🇨🇦"
+  },
+  "MX": {
+    name: "Mexico",
+    continent: "North America",
+    capital: "Mexico City",
+    top_cities: ["Mexico City", "Guadalajara", "Monterrey"],
+    population: "130 million",
+    languages: ["Spanish", "Nahuatl", "Mayan"],
+    currency_name: "Mexican Peso",
+    currency_code: "MXN",
+    currency_value_note: "1 MXN ≈ 0.058 USD",
+    flag_emoji: "🇲🇽"
+  },
+  "BR": {
+    name: "Brazil",
+    continent: "South America",
+    capital: "Brasília",
+    top_cities: ["São Paulo", "Rio de Janeiro", "Salvador"],
+    population: "215 million",
+    languages: ["Portuguese", "Spanish", "English"],
+    currency_name: "Brazilian Real",
+    currency_code: "BRL",
+    currency_value_note: "1 BRL ≈ 0.20 USD",
+    flag_emoji: "🇧🇷"
+  },
+  "AR": {
+    name: "Argentina",
+    continent: "South America",
+    capital: "Buenos Aires",
+    top_cities: ["Buenos Aires", "Córdoba", "Rosario"],
+    population: "46 million",
+    languages: ["Spanish", "Italian", "Quechua"],
+    currency_name: "Argentine Peso",
+    currency_code: "ARS",
+    currency_value_note: "1 ARS ≈ 0.001 USD",
+    flag_emoji: "🇦🇷"
+  },
+  "GB": {
+    name: "United Kingdom",
+    continent: "Europe",
+    capital: "London",
+    top_cities: ["London", "Birmingham", "Manchester"],
+    population: "67 million",
+    languages: ["English", "Welsh", "Scottish Gaelic"],
+    currency_name: "Pound Sterling",
+    currency_code: "GBP",
+    currency_value_note: "1 GBP ≈ 1.27 USD",
+    flag_emoji: "🇬🇧"
+  },
+  "DE": {
+    name: "Germany",
+    continent: "Europe",
+    capital: "Berlin",
+    top_cities: ["Berlin", "Hamburg", "Munich"],
+    population: "84 million",
+    languages: ["German", "Turkish", "English"],
+    currency_name: "Euro",
+    currency_code: "EUR",
+    currency_value_note: "1 EUR ≈ 1.08 USD",
+    flag_emoji: "🇩🇪"
+  },
+  "FR": {
+    name: "France",
+    continent: "Europe",
+    capital: "Paris",
+    top_cities: ["Paris", "Marseille", "Lyon"],
+    population: "68 million",
+    languages: ["French", "Arabic", "Occitan"],
+    currency_name: "Euro",
+    currency_code: "EUR",
+    currency_value_note: "1 EUR ≈ 1.08 USD",
+    flag_emoji: "🇫🇷"
+  },
+  "RU": {
+    name: "Russia",
+    continent: "Europe / Asia",
+    capital: "Moscow",
+    top_cities: ["Moscow", "Saint Petersburg", "Novosibirsk"],
+    population: "145 million",
+    languages: ["Russian", "Tatar", "Chechen"],
+    currency_name: "Russian Ruble",
+    currency_code: "RUB",
+    currency_value_note: "1 RUB ≈ 0.011 USD",
+    flag_emoji: "🇷🇺"
+  },
+  "CN": {
+    name: "China",
+    continent: "Asia",
+    capital: "Beijing",
+    top_cities: ["Shanghai", "Beijing", "Guangzhou"],
+    population: "1.41 billion",
+    languages: ["Mandarin", "Cantonese", "Wu"],
+    currency_name: "Chinese Yuan",
+    currency_code: "CNY",
+    currency_value_note: "1 CNY ≈ 0.14 USD",
+    flag_emoji: "🇨🇳"
+  },
+  "IN": {
+    name: "India",
+    continent: "Asia",
+    capital: "New Delhi",
+    top_cities: ["Mumbai", "Delhi", "Bangalore"],
+    population: "1.44 billion",
+    languages: ["Hindi", "Bengali", "Telugu"],
+    currency_name: "Indian Rupee",
+    currency_code: "INR",
+    currency_value_note: "1 INR ≈ 0.012 USD",
+    flag_emoji: "🇮🇳"
+  },
+  "JP": {
+    name: "Japan",
+    continent: "Asia",
+    capital: "Tokyo",
+    top_cities: ["Tokyo", "Osaka", "Yokohama"],
+    population: "124 million",
+    languages: ["Japanese", "Ryukyuan", "Ainu"],
+    currency_name: "Japanese Yen",
+    currency_code: "JPY",
+    currency_value_note: "1 JPY ≈ 0.0066 USD",
+    flag_emoji: "🇯🇵"
+  },
+  "SA": {
+    name: "Saudi Arabia",
+    continent: "Asia",
+    capital: "Riyadh",
+    top_cities: ["Riyadh", "Jeddah", "Mecca"],
+    population: "36 million",
+    languages: ["Arabic", "English", "Filipino"],
+    currency_name: "Saudi Riyal",
+    currency_code: "SAR",
+    currency_value_note: "1 SAR ≈ 0.27 USD",
+    flag_emoji: "🇸🇦"
+  },
+  "AE": {
+    name: "United Arab Emirates",
+    continent: "Asia",
+    capital: "Abu Dhabi",
+    top_cities: ["Dubai", "Abu Dhabi", "Sharjah"],
+    population: "10.2 million",
+    languages: ["Arabic", "English", "Hindi/Urdu"],
+    currency_name: "UAE Dirham",
+    currency_code: "AED",
+    currency_value_note: "1 AED ≈ 0.27 USD",
+    flag_emoji: "🇦🇪"
+  },
+  "ID": {
+    name: "Indonesia",
+    continent: "Asia",
+    capital: "Jakarta",
+    top_cities: ["Jakarta", "Surabaya", "Bandung"],
+    population: "278 million",
+    languages: ["Indonesian", "Javanese", "Sundanese"],
+    currency_name: "Indonesian Rupiah",
+    currency_code: "IDR",
+    currency_value_note: "1 IDR ≈ 0.000064 USD",
+    flag_emoji: "🇮🇩"
+  },
+  "AU": {
+    name: "Australia",
+    continent: "Oceania",
+    capital: "Canberra",
+    top_cities: ["Sydney", "Melbourne", "Brisbane"],
+    population: "26 million",
+    languages: ["English", "Mandarin", "Arabic"],
+    currency_name: "Australian Dollar",
+    currency_code: "AUD",
+    currency_value_note: "1 AUD ≈ 0.65 USD",
+    flag_emoji: "🇦🇺"
+  },
+  "ZA": {
+    name: "South Africa",
+    continent: "Africa",
+    capital: "Pretoria",
+    top_cities: ["Johannesburg", "Cape Town", "Durban"],
+    population: "60 million",
+    languages: ["Zulu", "Xhosa", "Afrikaans"],
+    currency_name: "South African Rand",
+    currency_code: "ZAR",
+    currency_value_note: "1 ZAR ≈ 0.055 USD",
+    flag_emoji: "🇿🇦"
+  },
+  "NG": {
+    name: "Nigeria",
+    continent: "Africa",
+    capital: "Abuja",
+    top_cities: ["Lagos", "Kano", "Ibadan"],
+    population: "225 million",
+    languages: ["English", "Hausa", "Yoruba"],
+    currency_name: "Nigerian Naira",
+    currency_code: "NGN",
+    currency_value_note: "1 NGN ≈ 0.00063 USD",
+    flag_emoji: "🇳🇬"
+  },
+  "EG": {
+    name: "Egypt",
+    continent: "Africa",
+    capital: "Cairo",
+    top_cities: ["Cairo", "Alexandria", "Giza"],
+    population: "106 million",
+    languages: ["Arabic", "English", "French"],
+    currency_name: "Egyptian Pound",
+    currency_code: "EGP",
+    currency_value_note: "1 EGP ≈ 0.032 USD",
+    flag_emoji: "🇪🇬"
+  },
+  "KE": {
+    name: "Kenya",
+    continent: "Africa",
+    capital: "Nairobi",
+    top_cities: ["Nairobi", "Mombasa", "Kisumu"],
+    population: "56 million",
+    languages: ["Swahili", "English", "Kikuyu"],
+    currency_name: "Kenyan Shilling",
+    currency_code: "KES",
+    currency_value_note: "1 KES ≈ 0.0077 USD",
+    flag_emoji: "🇰🇪"
+  },
+
+  /* ── NORTH AMERICA (continued) ─────────────────────────── */
+  "AG": { name: "Antigua and Barbuda", continent: "North America", capital: "Saint John's", top_cities: ["Saint John's", "All Saints", "Liberta"], population: "100,000", languages: ["English", "Antiguan Creole", "Spanish"], currency_name: "East Caribbean Dollar", currency_code: "XCD", currency_value_note: "1 XCD ≈ 0.37 USD", flag_emoji: "🇦🇬" },
+  "BS": { name: "Bahamas", continent: "North America", capital: "Nassau", top_cities: ["Nassau", "Lucaya", "Freeport"], population: "400,000", languages: ["English", "Bahamian Creole", "Haitian Creole"], currency_name: "Bahamian Dollar", currency_code: "BSD", currency_value_note: "1 BSD = 1.00 USD (pegged)", flag_emoji: "🇧🇸" },
+  "BB": { name: "Barbados", continent: "North America", capital: "Bridgetown", top_cities: ["Bridgetown", "Speightstown", "Oistins"], population: "280,000", languages: ["English", "Bajan Creole"], currency_name: "Barbadian Dollar", currency_code: "BBD", currency_value_note: "1 BBD = 0.50 USD (pegged)", flag_emoji: "🇧🇧" },
+  "BZ": { name: "Belize", continent: "North America", capital: "Belmopan", top_cities: ["Belize City", "San Ignacio", "Orange Walk"], population: "430,000", languages: ["English", "Spanish", "Kriol"], currency_name: "Belize Dollar", currency_code: "BZD", currency_value_note: "1 BZD = 0.50 USD (pegged)", flag_emoji: "🇧🇿" },
+  "CR": { name: "Costa Rica", continent: "North America", capital: "San José", top_cities: ["San José", "Alajuela", "Cartago"], population: "5.2 million", languages: ["Spanish", "English", "Mekatelyu"], currency_name: "Costa Rican Colón", currency_code: "CRC", currency_value_note: "1 CRC ≈ 0.0019 USD", flag_emoji: "🇨🇷" },
+  "CU": { name: "Cuba", continent: "North America", capital: "Havana", top_cities: ["Havana", "Santiago de Cuba", "Camagüey"], population: "11.2 million", languages: ["Spanish", "Haitian Creole", "Lucumí"], currency_name: "Cuban Peso", currency_code: "CUP", currency_value_note: "1 CUP ≈ 0.042 USD", flag_emoji: "🇨🇺" },
+  "DM": { name: "Dominica", continent: "North America", capital: "Roseau", top_cities: ["Roseau", "Portsmouth", "Marigot"], population: "70,000", languages: ["English", "Antillean Creole", "French"], currency_name: "East Caribbean Dollar", currency_code: "XCD", currency_value_note: "1 XCD ≈ 0.37 USD", flag_emoji: "🇩🇲" },
+  "DO": { name: "Dominican Republic", continent: "North America", capital: "Santo Domingo", top_cities: ["Santo Domingo", "Santiago", "La Romana"], population: "11.2 million", languages: ["Spanish", "Haitian Creole", "English"], currency_name: "Dominican Peso", currency_code: "DOP", currency_value_note: "1 DOP ≈ 0.017 USD", flag_emoji: "🇩🇴" },
+  "SV": { name: "El Salvador", continent: "North America", capital: "San Salvador", top_cities: ["San Salvador", "Soyapango", "San Miguel"], population: "6.5 million", languages: ["Spanish", "Nawat", "English"], currency_name: "US Dollar", currency_code: "USD", currency_value_note: "Uses USD as official currency", flag_emoji: "🇸🇻" },
+  "GD": { name: "Grenada", continent: "North America", capital: "Saint George's", top_cities: ["Saint George's", "Gouyave", "Grenville"], population: "120,000", languages: ["English", "Grenadian Creole", "French"], currency_name: "East Caribbean Dollar", currency_code: "XCD", currency_value_note: "1 XCD ≈ 0.37 USD", flag_emoji: "🇬🇩" },
+  "GT": { name: "Guatemala", continent: "North America", capital: "Guatemala City", top_cities: ["Guatemala City", "Quetzaltenango", "Villa Nueva"], population: "17.9 million", languages: ["Spanish", "K'iche'", "Q'eqchi'"], currency_name: "Guatemalan Quetzal", currency_code: "GTQ", currency_value_note: "1 GTQ ≈ 0.13 USD", flag_emoji: "🇬🇹" },
+  "HT": { name: "Haiti", continent: "North America", capital: "Port-au-Prince", top_cities: ["Port-au-Prince", "Cap-Haïtien", "Gonaïves"], population: "11.7 million", languages: ["Haitian Creole", "French"], currency_name: "Haitian Gourde", currency_code: "HTG", currency_value_note: "1 HTG ≈ 0.0076 USD", flag_emoji: "🇭🇹" },
+  "HN": { name: "Honduras", continent: "North America", capital: "Tegucigalpa", top_cities: ["Tegucigalpa", "San Pedro Sula", "La Ceiba"], population: "10.4 million", languages: ["Spanish", "Garifuna", "English"], currency_name: "Honduran Lempira", currency_code: "HNL", currency_value_note: "1 HNL ≈ 0.040 USD", flag_emoji: "🇭🇳" },
+  "JM": { name: "Jamaica", continent: "North America", capital: "Kingston", top_cities: ["Kingston", "Montego Bay", "Spanish Town"], population: "3 million", languages: ["English", "Jamaican Patois"], currency_name: "Jamaican Dollar", currency_code: "JMD", currency_value_note: "1 JMD ≈ 0.0063 USD", flag_emoji: "🇯🇲" },
+  "NI": { name: "Nicaragua", continent: "North America", capital: "Managua", top_cities: ["Managua", "León", "Masaya"], population: "6.9 million", languages: ["Spanish", "Miskito", "English Creole"], currency_name: "Nicaraguan Córdoba", currency_code: "NIO", currency_value_note: "1 NIO ≈ 0.027 USD", flag_emoji: "🇳🇮" },
+  "PA": { name: "Panama", continent: "North America", capital: "Panama City", top_cities: ["Panama City", "San Miguelito", "Colón"], population: "4.4 million", languages: ["Spanish", "Ngäbere", "English"], currency_name: "Panamanian Balboa / US Dollar", currency_code: "PAB", currency_value_note: "1 PAB = 1.00 USD (pegged)", flag_emoji: "🇵🇦" },
+  "KN": { name: "Saint Kitts and Nevis", continent: "North America", capital: "Basseterre", top_cities: ["Basseterre", "Charlestown", "Sandy Point"], population: "55,000", languages: ["English", "Saint Kitts Creole"], currency_name: "East Caribbean Dollar", currency_code: "XCD", currency_value_note: "1 XCD ≈ 0.37 USD", flag_emoji: "🇰🇳" },
+  "LC": { name: "Saint Lucia", continent: "North America", capital: "Castries", top_cities: ["Castries", "Vieux Fort", "Gros Islet"], population: "180,000", languages: ["English", "Saint Lucian Creole", "French"], currency_name: "East Caribbean Dollar", currency_code: "XCD", currency_value_note: "1 XCD ≈ 0.37 USD", flag_emoji: "🇱🇨" },
+  "VC": { name: "Saint Vincent and the Grenadines", continent: "North America", capital: "Kingstown", top_cities: ["Kingstown", "Georgetown", "Barrouallie"], population: "110,000", languages: ["English", "Vincentian Creole", "French"], currency_name: "East Caribbean Dollar", currency_code: "XCD", currency_value_note: "1 XCD ≈ 0.37 USD", flag_emoji: "🇻🇨" },
+  "TT": { name: "Trinidad and Tobago", continent: "North America", capital: "Port of Spain", top_cities: ["Port of Spain", "San Fernando", "Arima"], population: "1.5 million", languages: ["English", "Trinidadian Creole", "Hindi"], currency_name: "Trinidad and Tobago Dollar", currency_code: "TTD", currency_value_note: "1 TTD ≈ 0.15 USD", flag_emoji: "🇹🇹" },
+
+  /* ── SOUTH AMERICA ──────────────────────────────────────── */
+  "BO": { name: "Bolivia", continent: "South America", capital: "Sucre / La Paz", top_cities: ["Santa Cruz", "La Paz", "Cochabamba"], population: "12.1 million", languages: ["Spanish", "Quechua", "Aymara"], currency_name: "Boliviano", currency_code: "BOB", currency_value_note: "1 BOB ≈ 0.145 USD", flag_emoji: "🇧🇴" },
+  "CL": { name: "Chile", continent: "South America", capital: "Santiago", top_cities: ["Santiago", "Valparaíso", "Concepción"], population: "19.6 million", languages: ["Spanish", "Mapudungun", "Aymara"], currency_name: "Chilean Peso", currency_code: "CLP", currency_value_note: "1 CLP ≈ 0.0010 USD", flag_emoji: "🇨🇱" },
+  "CO": { name: "Colombia", continent: "South America", capital: "Bogotá", top_cities: ["Bogotá", "Medellín", "Cali"], population: "52.2 million", languages: ["Spanish", "Wayuu", "Páez"], currency_name: "Colombian Peso", currency_code: "COP", currency_value_note: "1 COP ≈ 0.00024 USD", flag_emoji: "🇨🇴" },
+  "EC": { name: "Ecuador", continent: "South America", capital: "Quito", top_cities: ["Guayaquil", "Quito", "Cuenca"], population: "18.3 million", languages: ["Spanish", "Kichwa", "Shuar"], currency_name: "US Dollar", currency_code: "USD", currency_value_note: "Uses USD as official currency", flag_emoji: "🇪🇨" },
+  "GY": { name: "Guyana", continent: "South America", capital: "Georgetown", top_cities: ["Georgetown", "Linden", "New Amsterdam"], population: "800,000", languages: ["English", "Guyanese Creole", "Hindi"], currency_name: "Guyanese Dollar", currency_code: "GYD", currency_value_note: "1 GYD ≈ 0.0048 USD", flag_emoji: "🇬🇾" },
+  "PY": { name: "Paraguay", continent: "South America", capital: "Asunción", top_cities: ["Asunción", "Ciudad del Este", "San Lorenzo"], population: "7.4 million", languages: ["Spanish", "Guaraní", "Portuguese"], currency_name: "Paraguayan Guaraní", currency_code: "PYG", currency_value_note: "1 PYG ≈ 0.00013 USD", flag_emoji: "🇵🇾" },
+  "PE": { name: "Peru", continent: "South America", capital: "Lima", top_cities: ["Lima", "Arequipa", "Trujillo"], population: "33.4 million", languages: ["Spanish", "Quechua", "Aymara"], currency_name: "Peruvian Sol", currency_code: "PEN", currency_value_note: "1 PEN ≈ 0.27 USD", flag_emoji: "🇵🇪" },
+  "SR": { name: "Suriname", continent: "South America", capital: "Paramaribo", top_cities: ["Paramaribo", "Lelydorp", "Nieuw Nickerie"], population: "640,000", languages: ["Dutch", "Sranan Tongo", "Hindi"], currency_name: "Surinamese Dollar", currency_code: "SRD", currency_value_note: "1 SRD ≈ 0.027 USD", flag_emoji: "🇸🇷" },
+  "UY": { name: "Uruguay", continent: "South America", capital: "Montevideo", top_cities: ["Montevideo", "Salto", "Ciudad de la Costa"], population: "3.5 million", languages: ["Spanish", "Uruguayan Portuguese", "English"], currency_name: "Uruguayan Peso", currency_code: "UYU", currency_value_note: "1 UYU ≈ 0.024 USD", flag_emoji: "🇺🇾" },
+  "VE": { name: "Venezuela", continent: "South America", capital: "Caracas", top_cities: ["Caracas", "Maracaibo", "Valencia"], population: "28.3 million", languages: ["Spanish", "Wayuu", "Warao"], currency_name: "Venezuelan Bolívar", currency_code: "VES", currency_value_note: "1 VES ≈ 0.028 USD", flag_emoji: "🇻🇪" },
+
+  /* ── EUROPE ─────────────────────────────────────────────── */
+  "AL": { name: "Albania", continent: "Europe", capital: "Tirana", top_cities: ["Tirana", "Durrës", "Vlorë"], population: "2.8 million", languages: ["Albanian", "Greek", "Romani"], currency_name: "Albanian Lek", currency_code: "ALL", currency_value_note: "1 ALL ≈ 0.011 USD", flag_emoji: "🇦🇱" },
+  "AD": { name: "Andorra", continent: "Europe", capital: "Andorra la Vella", top_cities: ["Andorra la Vella", "Escaldes-Engordany", "Encamp"], population: "80,000", languages: ["Catalan", "Spanish", "French"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇦🇩" },
+  "AT": { name: "Austria", continent: "Europe", capital: "Vienna", top_cities: ["Vienna", "Graz", "Linz"], population: "9.1 million", languages: ["German", "Turkish", "Serbian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇦🇹" },
+  "BY": { name: "Belarus", continent: "Europe", capital: "Minsk", top_cities: ["Minsk", "Gomel", "Mogilev"], population: "9.4 million", languages: ["Belarusian", "Russian", "Polish"], currency_name: "Belarusian Ruble", currency_code: "BYN", currency_value_note: "1 BYN ≈ 0.30 USD", flag_emoji: "🇧🇾" },
+  "BE": { name: "Belgium", continent: "Europe", capital: "Brussels", top_cities: ["Brussels", "Antwerp", "Ghent"], population: "11.7 million", languages: ["Dutch", "French", "German"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇧🇪" },
+  "BA": { name: "Bosnia and Herzegovina", continent: "Europe", capital: "Sarajevo", top_cities: ["Sarajevo", "Banja Luka", "Tuzla"], population: "3.2 million", languages: ["Bosnian", "Croatian", "Serbian"], currency_name: "Bosnia-Herzegovina Convertible Mark", currency_code: "BAM", currency_value_note: "1 BAM ≈ 0.55 USD", flag_emoji: "🇧🇦" },
+  "BG": { name: "Bulgaria", continent: "Europe", capital: "Sofia", top_cities: ["Sofia", "Plovdiv", "Varna"], population: "6.4 million", languages: ["Bulgarian", "Turkish", "Romani"], currency_name: "Bulgarian Lev", currency_code: "BGN", currency_value_note: "1 BGN ≈ 0.55 USD", flag_emoji: "🇧🇬" },
+  "HR": { name: "Croatia", continent: "Europe", capital: "Zagreb", top_cities: ["Zagreb", "Split", "Rijeka"], population: "3.9 million", languages: ["Croatian", "Serbian", "Bosnian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇭🇷" },
+  "CY": { name: "Cyprus", continent: "Europe", capital: "Nicosia", top_cities: ["Nicosia", "Limassol", "Larnaca"], population: "1.3 million", languages: ["Greek", "Turkish", "English"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇨🇾" },
+  "CZ": { name: "Czech Republic", continent: "Europe", capital: "Prague", top_cities: ["Prague", "Brno", "Ostrava"], population: "10.9 million", languages: ["Czech", "Slovak", "German"], currency_name: "Czech Koruna", currency_code: "CZK", currency_value_note: "1 CZK ≈ 0.044 USD", flag_emoji: "🇨🇿" },
+  "DK": { name: "Denmark", continent: "Europe", capital: "Copenhagen", top_cities: ["Copenhagen", "Aarhus", "Odense"], population: "5.9 million", languages: ["Danish", "English", "German"], currency_name: "Danish Krone", currency_code: "DKK", currency_value_note: "1 DKK ≈ 0.145 USD", flag_emoji: "🇩🇰" },
+  "EE": { name: "Estonia", continent: "Europe", capital: "Tallinn", top_cities: ["Tallinn", "Tartu", "Narva"], population: "1.3 million", languages: ["Estonian", "Russian", "Ukrainian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇪🇪" },
+  "FI": { name: "Finland", continent: "Europe", capital: "Helsinki", top_cities: ["Helsinki", "Espoo", "Tampere"], population: "5.6 million", languages: ["Finnish", "Swedish", "Russian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇫🇮" },
+  "GR": { name: "Greece", continent: "Europe", capital: "Athens", top_cities: ["Athens", "Thessaloniki", "Patras"], population: "10.4 million", languages: ["Greek", "Albanian", "English"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇬🇷" },
+  "HU": { name: "Hungary", continent: "Europe", capital: "Budapest", top_cities: ["Budapest", "Debrecen", "Miskolc"], population: "9.6 million", languages: ["Hungarian", "Romanian", "German"], currency_name: "Hungarian Forint", currency_code: "HUF", currency_value_note: "1 HUF ≈ 0.0027 USD", flag_emoji: "🇭🇺" },
+  "IS": { name: "Iceland", continent: "Europe", capital: "Reykjavik", top_cities: ["Reykjavik", "Kópavogur", "Hafnarfjörður"], population: "380,000", languages: ["Icelandic", "Polish", "English"], currency_name: "Icelandic Króna", currency_code: "ISK", currency_value_note: "1 ISK ≈ 0.0072 USD", flag_emoji: "🇮🇸" },
+  "IE": { name: "Ireland", continent: "Europe", capital: "Dublin", top_cities: ["Dublin", "Cork", "Limerick"], population: "5.1 million", languages: ["English", "Irish", "Polish"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇮🇪" },
+  "IT": { name: "Italy", continent: "Europe", capital: "Rome", top_cities: ["Rome", "Milan", "Naples"], population: "58.8 million", languages: ["Italian", "English", "Romanian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇮🇹" },
+  "LV": { name: "Latvia", continent: "Europe", capital: "Riga", top_cities: ["Riga", "Daugavpils", "Liepāja"], population: "1.8 million", languages: ["Latvian", "Russian", "Lithuanian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇱🇻" },
+  "LI": { name: "Liechtenstein", continent: "Europe", capital: "Vaduz", top_cities: ["Vaduz", "Schaan", "Balzers"], population: "40,000", languages: ["German", "Alemannic", "Italian"], currency_name: "Swiss Franc", currency_code: "CHF", currency_value_note: "1 CHF ≈ 1.12 USD", flag_emoji: "🇱🇮" },
+  "LT": { name: "Lithuania", continent: "Europe", capital: "Vilnius", top_cities: ["Vilnius", "Kaunas", "Klaipėda"], population: "2.8 million", languages: ["Lithuanian", "Russian", "Polish"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇱🇹" },
+  "LU": { name: "Luxembourg", continent: "Europe", capital: "Luxembourg City", top_cities: ["Luxembourg City", "Esch-sur-Alzette", "Differdange"], population: "670,000", languages: ["Luxembourgish", "French", "German"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇱🇺" },
+  "MT": { name: "Malta", continent: "Europe", capital: "Valletta", top_cities: ["Birkirkara", "Mosta", "Qormi"], population: "550,000", languages: ["Maltese", "English", "Italian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇲🇹" },
+  "MD": { name: "Moldova", continent: "Europe", capital: "Chișinău", top_cities: ["Chișinău", "Tiraspol", "Bălți"], population: "2.6 million", languages: ["Romanian", "Russian", "Gagauz"], currency_name: "Moldovan Leu", currency_code: "MDL", currency_value_note: "1 MDL ≈ 0.055 USD", flag_emoji: "🇲🇩" },
+  "MC": { name: "Monaco", continent: "Europe", capital: "Monaco", top_cities: ["Monaco", "Monte Carlo", "La Condamine"], population: "40,000", languages: ["French", "Monégasque", "Italian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇲🇨" },
+  "ME": { name: "Montenegro", continent: "Europe", capital: "Podgorica", top_cities: ["Podgorica", "Nikšić", "Herceg Novi"], population: "620,000", languages: ["Serbian", "Bosnian", "Albanian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇲🇪" },
+  "NL": { name: "Netherlands", continent: "Europe", capital: "Amsterdam", top_cities: ["Amsterdam", "Rotterdam", "The Hague"], population: "17.9 million", languages: ["Dutch", "English", "Turkish"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇳🇱" },
+  "MK": { name: "North Macedonia", continent: "Europe", capital: "Skopje", top_cities: ["Skopje", "Bitola", "Kumanovo"], population: "2.1 million", languages: ["Macedonian", "Albanian", "Turkish"], currency_name: "Macedonian Denar", currency_code: "MKD", currency_value_note: "1 MKD ≈ 0.018 USD", flag_emoji: "🇲🇰" },
+  "NO": { name: "Norway", continent: "Europe", capital: "Oslo", top_cities: ["Oslo", "Bergen", "Trondheim"], population: "5.5 million", languages: ["Norwegian", "Sami", "English"], currency_name: "Norwegian Krone", currency_code: "NOK", currency_value_note: "1 NOK ≈ 0.091 USD", flag_emoji: "🇳🇴" },
+  "PL": { name: "Poland", continent: "Europe", capital: "Warsaw", top_cities: ["Warsaw", "Kraków", "Łódź"], population: "36.8 million", languages: ["Polish", "Silesian", "Kashubian"], currency_name: "Polish Złoty", currency_code: "PLN", currency_value_note: "1 PLN ≈ 0.25 USD", flag_emoji: "🇵🇱" },
+  "PT": { name: "Portugal", continent: "Europe", capital: "Lisbon", top_cities: ["Lisbon", "Porto", "Braga"], population: "10.3 million", languages: ["Portuguese", "Mirandese", "English"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇵🇹" },
+  "RO": { name: "Romania", continent: "Europe", capital: "Bucharest", top_cities: ["Bucharest", "Cluj-Napoca", "Timișoara"], population: "18.9 million", languages: ["Romanian", "Hungarian", "Romani"], currency_name: "Romanian Leu", currency_code: "RON", currency_value_note: "1 RON ≈ 0.22 USD", flag_emoji: "🇷🇴" },
+  "SM": { name: "San Marino", continent: "Europe", capital: "San Marino", top_cities: ["San Marino", "Serravalle", "Borgo Maggiore"], population: "35,000", languages: ["Italian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇸🇲" },
+  "RS": { name: "Serbia", continent: "Europe", capital: "Belgrade", top_cities: ["Belgrade", "Novi Sad", "Niš"], population: "6.8 million", languages: ["Serbian", "Hungarian", "Bosnian"], currency_name: "Serbian Dinar", currency_code: "RSD", currency_value_note: "1 RSD ≈ 0.0092 USD", flag_emoji: "🇷🇸" },
+  "SK": { name: "Slovakia", continent: "Europe", capital: "Bratislava", top_cities: ["Bratislava", "Košice", "Prešov"], population: "5.5 million", languages: ["Slovak", "Hungarian", "Romani"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇸🇰" },
+  "SI": { name: "Slovenia", continent: "Europe", capital: "Ljubljana", top_cities: ["Ljubljana", "Maribor", "Celje"], population: "2.1 million", languages: ["Slovenian", "Croatian", "Serbian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇸🇮" },
+  "ES": { name: "Spain", continent: "Europe", capital: "Madrid", top_cities: ["Madrid", "Barcelona", "Valencia"], population: "47.4 million", languages: ["Spanish", "Catalan", "Galician"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇪🇸" },
+  "SE": { name: "Sweden", continent: "Europe", capital: "Stockholm", top_cities: ["Stockholm", "Gothenburg", "Malmö"], population: "10.5 million", languages: ["Swedish", "Arabic", "Finnish"], currency_name: "Swedish Krona", currency_code: "SEK", currency_value_note: "1 SEK ≈ 0.093 USD", flag_emoji: "🇸🇪" },
+  "CH": { name: "Switzerland", continent: "Europe", capital: "Bern", top_cities: ["Zürich", "Geneva", "Basel"], population: "8.7 million", languages: ["German", "French", "Italian"], currency_name: "Swiss Franc", currency_code: "CHF", currency_value_note: "1 CHF ≈ 1.12 USD", flag_emoji: "🇨🇭" },
+  "UA": { name: "Ukraine", continent: "Europe", capital: "Kyiv", top_cities: ["Kyiv", "Kharkiv", "Odessa"], population: "43 million", languages: ["Ukrainian", "Russian", "Romanian"], currency_name: "Ukrainian Hryvnia", currency_code: "UAH", currency_value_note: "1 UAH ≈ 0.024 USD", flag_emoji: "🇺🇦" },
+  "VA": { name: "Vatican City", continent: "Europe", capital: "Vatican City", top_cities: ["Vatican City"], population: "800", languages: ["Latin", "Italian", "French"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇻🇦" },
+  "XK": { name: "Kosovo", continent: "Europe", capital: "Pristina", top_cities: ["Pristina", "Prizren", "Peja"], population: "1.8 million", languages: ["Albanian", "Serbian", "Bosnian"], currency_name: "Euro", currency_code: "EUR", currency_value_note: "1 EUR ≈ 1.08 USD", flag_emoji: "🇽🇰" },
+
+  /* ── AFRICA ─────────────────────────────────────────────── */
+  "DZ": { name: "Algeria", continent: "Africa", capital: "Algiers", top_cities: ["Algiers", "Oran", "Constantine"], population: "45 million", languages: ["Arabic", "Tamazight", "French"], currency_name: "Algerian Dinar", currency_code: "DZD", currency_value_note: "1 DZD ≈ 0.0074 USD", flag_emoji: "🇩🇿" },
+  "AO": { name: "Angola", continent: "Africa", capital: "Luanda", top_cities: ["Luanda", "Huambo", "Lobito"], population: "35 million", languages: ["Portuguese", "Umbundu", "Kikongo"], currency_name: "Angolan Kwanza", currency_code: "AOA", currency_value_note: "1 AOA ≈ 0.0011 USD", flag_emoji: "🇦🇴" },
+  "BJ": { name: "Benin", continent: "Africa", capital: "Porto-Novo", top_cities: ["Cotonou", "Porto-Novo", "Parakou"], population: "13 million", languages: ["French", "Fon", "Yoruba"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇧🇯" },
+  "BW": { name: "Botswana", continent: "Africa", capital: "Gaborone", top_cities: ["Gaborone", "Francistown", "Molepolole"], population: "2.6 million", languages: ["English", "Setswana", "Kalanga"], currency_name: "Botswana Pula", currency_code: "BWP", currency_value_note: "1 BWP ≈ 0.073 USD", flag_emoji: "🇧🇼" },
+  "BF": { name: "Burkina Faso", continent: "Africa", capital: "Ouagadougou", top_cities: ["Ouagadougou", "Bobo-Dioulasso", "Koudougou"], population: "23 million", languages: ["French", "Mossi", "Fula"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇧🇫" },
+  "BI": { name: "Burundi", continent: "Africa", capital: "Gitega", top_cities: ["Bujumbura", "Gitega", "Muyinga"], population: "13 million", languages: ["Kirundi", "French", "English"], currency_name: "Burundian Franc", currency_code: "BIF", currency_value_note: "1 BIF ≈ 0.00035 USD", flag_emoji: "🇧🇮" },
+  "CV": { name: "Cape Verde", continent: "Africa", capital: "Praia", top_cities: ["Praia", "Mindelo", "Santa Maria"], population: "600,000", languages: ["Portuguese", "Cape Verdean Creole"], currency_name: "Cape Verdean Escudo", currency_code: "CVE", currency_value_note: "1 CVE ≈ 0.0098 USD", flag_emoji: "🇨🇻" },
+  "CM": { name: "Cameroon", continent: "Africa", capital: "Yaoundé", top_cities: ["Douala", "Yaoundé", "Garoua"], population: "28 million", languages: ["French", "English", "Fula"], currency_name: "Central African CFA Franc", currency_code: "XAF", currency_value_note: "1 XAF ≈ 0.0016 USD", flag_emoji: "🇨🇲" },
+  "CF": { name: "Central African Republic", continent: "Africa", capital: "Bangui", top_cities: ["Bangui", "Bimbo", "Mbaïki"], population: "5.6 million", languages: ["French", "Sango", "Banda"], currency_name: "Central African CFA Franc", currency_code: "XAF", currency_value_note: "1 XAF ≈ 0.0016 USD", flag_emoji: "🇨🇫" },
+  "TD": { name: "Chad", continent: "Africa", capital: "N'Djamena", top_cities: ["N'Djamena", "Abéché", "Moundou"], population: "18 million", languages: ["French", "Arabic", "Sara"], currency_name: "Central African CFA Franc", currency_code: "XAF", currency_value_note: "1 XAF ≈ 0.0016 USD", flag_emoji: "🇹🇩" },
+  "KM": { name: "Comoros", continent: "Africa", capital: "Moroni", top_cities: ["Moroni", "Mutsamudu", "Fomboni"], population: "900,000", languages: ["Comorian", "Arabic", "French"], currency_name: "Comorian Franc", currency_code: "KMF", currency_value_note: "1 KMF ≈ 0.0022 USD", flag_emoji: "🇰🇲" },
+  "CD": { name: "DR Congo", continent: "Africa", capital: "Kinshasa", top_cities: ["Kinshasa", "Lubumbashi", "Mbuji-Mayi"], population: "102 million", languages: ["French", "Lingala", "Kikongo"], currency_name: "Congolese Franc", currency_code: "CDF", currency_value_note: "1 CDF ≈ 0.00035 USD", flag_emoji: "🇨🇩" },
+  "CG": { name: "Republic of the Congo", continent: "Africa", capital: "Brazzaville", top_cities: ["Brazzaville", "Pointe-Noire", "Dolisie"], population: "6 million", languages: ["French", "Lingala", "Monokutuba"], currency_name: "Central African CFA Franc", currency_code: "XAF", currency_value_note: "1 XAF ≈ 0.0016 USD", flag_emoji: "🇨🇬" },
+  "CI": { name: "Côte d'Ivoire", continent: "Africa", capital: "Yamoussoukro", top_cities: ["Abidjan", "Bouaké", "Daloa"], population: "28 million", languages: ["French", "Dioula", "Baoulé"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇨🇮" },
+  "DJ": { name: "Djibouti", continent: "Africa", capital: "Djibouti City", top_cities: ["Djibouti City", "Ali Sabieh", "Tadjourah"], population: "1.1 million", languages: ["French", "Arabic", "Somali"], currency_name: "Djiboutian Franc", currency_code: "DJF", currency_value_note: "1 DJF ≈ 0.0056 USD", flag_emoji: "🇩🇯" },
+  "GQ": { name: "Equatorial Guinea", continent: "Africa", capital: "Malabo", top_cities: ["Malabo", "Bata", "Ebebiyín"], population: "1.5 million", languages: ["Spanish", "French", "Portuguese"], currency_name: "Central African CFA Franc", currency_code: "XAF", currency_value_note: "1 XAF ≈ 0.0016 USD", flag_emoji: "🇬🇶" },
+  "ER": { name: "Eritrea", continent: "Africa", capital: "Asmara", top_cities: ["Asmara", "Keren", "Massawa"], population: "3.5 million", languages: ["Tigrinya", "Arabic", "English"], currency_name: "Eritrean Nakfa", currency_code: "ERN", currency_value_note: "1 ERN ≈ 0.067 USD", flag_emoji: "🇪🇷" },
+  "SZ": { name: "Eswatini", continent: "Africa", capital: "Mbabane", top_cities: ["Mbabane", "Manzini", "Lobamba"], population: "1.2 million", languages: ["Swati", "English", "Zulu"], currency_name: "Swazi Lilangeni", currency_code: "SZL", currency_value_note: "1 SZL ≈ 0.055 USD", flag_emoji: "🇸🇿" },
+  "ET": { name: "Ethiopia", continent: "Africa", capital: "Addis Ababa", top_cities: ["Addis Ababa", "Dire Dawa", "Gondar"], population: "128 million", languages: ["Amharic", "Oromo", "Somali"], currency_name: "Ethiopian Birr", currency_code: "ETB", currency_value_note: "1 ETB ≈ 0.017 USD", flag_emoji: "🇪🇹" },
+  "GA": { name: "Gabon", continent: "Africa", capital: "Libreville", top_cities: ["Libreville", "Port-Gentil", "Franceville"], population: "2.4 million", languages: ["French", "Fang", "Myene"], currency_name: "Central African CFA Franc", currency_code: "XAF", currency_value_note: "1 XAF ≈ 0.0016 USD", flag_emoji: "🇬🇦" },
+  "GM": { name: "Gambia", continent: "Africa", capital: "Banjul", top_cities: ["Serekunda", "Brikama", "Banjul"], population: "2.7 million", languages: ["English", "Mandinka", "Fula"], currency_name: "Gambian Dalasi", currency_code: "GMD", currency_value_note: "1 GMD ≈ 0.014 USD", flag_emoji: "🇬🇲" },
+  "GH": { name: "Ghana", continent: "Africa", capital: "Accra", top_cities: ["Accra", "Kumasi", "Tamale"], population: "34 million", languages: ["English", "Akan", "Ewe"], currency_name: "Ghanaian Cedi", currency_code: "GHS", currency_value_note: "1 GHS ≈ 0.064 USD", flag_emoji: "🇬🇭" },
+  "GN": { name: "Guinea", continent: "Africa", capital: "Conakry", top_cities: ["Conakry", "Nzérékoré", "Kindia"], population: "14 million", languages: ["French", "Pular", "Mandinka"], currency_name: "Guinean Franc", currency_code: "GNF", currency_value_note: "1 GNF ≈ 0.00012 USD", flag_emoji: "🇬🇳" },
+  "GW": { name: "Guinea-Bissau", continent: "Africa", capital: "Bissau", top_cities: ["Bissau", "Bafatá", "Gabú"], population: "2.1 million", languages: ["Portuguese", "Fula", "Balanta"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇬🇼" },
+  "LS": { name: "Lesotho", continent: "Africa", capital: "Maseru", top_cities: ["Maseru", "Teyateyaneng", "Mafeteng"], population: "2.3 million", languages: ["Sesotho", "English", "Zulu"], currency_name: "Lesotho Loti", currency_code: "LSL", currency_value_note: "1 LSL ≈ 0.055 USD", flag_emoji: "🇱🇸" },
+  "LR": { name: "Liberia", continent: "Africa", capital: "Monrovia", top_cities: ["Monrovia", "Gbarnga", "Kakata"], population: "5.4 million", languages: ["English", "Kpelle", "Bassa"], currency_name: "Liberian Dollar", currency_code: "LRD", currency_value_note: "1 LRD ≈ 0.0052 USD", flag_emoji: "🇱🇷" },
+  "LY": { name: "Libya", continent: "Africa", capital: "Tripoli", top_cities: ["Tripoli", "Benghazi", "Misrata"], population: "7.3 million", languages: ["Arabic", "Berber", "Italian"], currency_name: "Libyan Dinar", currency_code: "LYD", currency_value_note: "1 LYD ≈ 0.21 USD", flag_emoji: "🇱🇾" },
+  "MG": { name: "Madagascar", continent: "Africa", capital: "Antananarivo", top_cities: ["Antananarivo", "Toamasina", "Antsirabe"], population: "29 million", languages: ["Malagasy", "French", "English"], currency_name: "Malagasy Ariary", currency_code: "MGA", currency_value_note: "1 MGA ≈ 0.00022 USD", flag_emoji: "🇲🇬" },
+  "MW": { name: "Malawi", continent: "Africa", capital: "Lilongwe", top_cities: ["Blantyre", "Lilongwe", "Mzuzu"], population: "21 million", languages: ["Chichewa", "English", "Tumbuka"], currency_name: "Malawian Kwacha", currency_code: "MWK", currency_value_note: "1 MWK ≈ 0.00058 USD", flag_emoji: "🇲🇼" },
+  "ML": { name: "Mali", continent: "Africa", capital: "Bamako", top_cities: ["Bamako", "Sikasso", "Mopti"], population: "24 million", languages: ["French", "Bambara", "Fula"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇲🇱" },
+  "MR": { name: "Mauritania", continent: "Africa", capital: "Nouakchott", top_cities: ["Nouakchott", "Nouadhibou", "Kiffa"], population: "4.7 million", languages: ["Arabic", "Pulaar", "Soninke"], currency_name: "Mauritanian Ouguiya", currency_code: "MRU", currency_value_note: "1 MRU ≈ 0.025 USD", flag_emoji: "🇲🇷" },
+  "MU": { name: "Mauritius", continent: "Africa", capital: "Port Louis", top_cities: ["Port Louis", "Beau Bassin", "Vacoas"], population: "1.3 million", languages: ["English", "French", "Mauritian Creole"], currency_name: "Mauritian Rupee", currency_code: "MUR", currency_value_note: "1 MUR ≈ 0.022 USD", flag_emoji: "🇲🇺" },
+  "MA": { name: "Morocco", continent: "Africa", capital: "Rabat", top_cities: ["Casablanca", "Rabat", "Fès"], population: "37 million", languages: ["Arabic", "Berber", "French"], currency_name: "Moroccan Dirham", currency_code: "MAD", currency_value_note: "1 MAD ≈ 0.099 USD", flag_emoji: "🇲🇦" },
+  "MZ": { name: "Mozambique", continent: "Africa", capital: "Maputo", top_cities: ["Maputo", "Matola", "Nampula"], population: "34 million", languages: ["Portuguese", "Emakhuwa", "Sena"], currency_name: "Mozambican Metical", currency_code: "MZN", currency_value_note: "1 MZN ≈ 0.016 USD", flag_emoji: "🇲🇿" },
+  "NA": { name: "Namibia", continent: "Africa", capital: "Windhoek", top_cities: ["Windhoek", "Rundu", "Walvis Bay"], population: "3 million", languages: ["English", "Afrikaans", "Oshiwambo"], currency_name: "Namibian Dollar", currency_code: "NAD", currency_value_note: "1 NAD ≈ 0.055 USD", flag_emoji: "🇳🇦" },
+  "NE": { name: "Niger", continent: "Africa", capital: "Niamey", top_cities: ["Niamey", "Zinder", "Maradi"], population: "27 million", languages: ["French", "Hausa", "Zarma"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇳🇪" },
+  "RW": { name: "Rwanda", continent: "Africa", capital: "Kigali", top_cities: ["Kigali", "Butare", "Gitarama"], population: "14 million", languages: ["Kinyarwanda", "French", "English"], currency_name: "Rwandan Franc", currency_code: "RWF", currency_value_note: "1 RWF ≈ 0.00073 USD", flag_emoji: "🇷🇼" },
+  "ST": { name: "São Tomé and Príncipe", continent: "Africa", capital: "São Tomé", top_cities: ["São Tomé", "Santo António", "Neves"], population: "230,000", languages: ["Portuguese", "São Tomé Creole"], currency_name: "São Tomé Dobra", currency_code: "STN", currency_value_note: "1 STN ≈ 0.044 USD", flag_emoji: "🇸🇹" },
+  "SN": { name: "Senegal", continent: "Africa", capital: "Dakar", top_cities: ["Dakar", "Touba", "Thiès"], population: "18 million", languages: ["French", "Wolof", "Pulaar"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇸🇳" },
+  "SC": { name: "Seychelles", continent: "Africa", capital: "Victoria", top_cities: ["Victoria", "Anse Boileau", "Beau Vallon"], population: "100,000", languages: ["Seychellois Creole", "French", "English"], currency_name: "Seychellois Rupee", currency_code: "SCR", currency_value_note: "1 SCR ≈ 0.073 USD", flag_emoji: "🇸🇨" },
+  "SL": { name: "Sierra Leone", continent: "Africa", capital: "Freetown", top_cities: ["Freetown", "Bo", "Kenema"], population: "8.8 million", languages: ["English", "Mende", "Temne"], currency_name: "Sierra Leonean Leone", currency_code: "SLE", currency_value_note: "1 SLE ≈ 0.045 USD", flag_emoji: "🇸🇱" },
+  "SO": { name: "Somalia", continent: "Africa", capital: "Mogadishu", top_cities: ["Mogadishu", "Hargeisa", "Bosaso"], population: "18 million", languages: ["Somali", "Arabic", "Italian"], currency_name: "Somali Shilling", currency_code: "SOS", currency_value_note: "1 SOS ≈ 0.0017 USD", flag_emoji: "🇸🇴" },
+  "SS": { name: "South Sudan", continent: "Africa", capital: "Juba", top_cities: ["Juba", "Wau", "Malakal"], population: "11 million", languages: ["English", "Arabic", "Nuer"], currency_name: "South Sudanese Pound", currency_code: "SSP", currency_value_note: "1 SSP ≈ 0.00077 USD", flag_emoji: "🇸🇸" },
+  "SD": { name: "Sudan", continent: "Africa", capital: "Khartoum", top_cities: ["Khartoum", "Omdurman", "Port Sudan"], population: "46 million", languages: ["Arabic", "English", "Nuba"], currency_name: "Sudanese Pound", currency_code: "SDG", currency_value_note: "1 SDG ≈ 0.0017 USD", flag_emoji: "🇸🇩" },
+  "TZ": { name: "Tanzania", continent: "Africa", capital: "Dodoma", top_cities: ["Dar es Salaam", "Mwanza", "Dodoma"], population: "65 million", languages: ["Swahili", "English", "Arabic"], currency_name: "Tanzanian Shilling", currency_code: "TZS", currency_value_note: "1 TZS ≈ 0.00039 USD", flag_emoji: "🇹🇿" },
+  "TG": { name: "Togo", continent: "Africa", capital: "Lomé", top_cities: ["Lomé", "Sokodé", "Kara"], population: "9 million", languages: ["French", "Ewe", "Kabiyé"], currency_name: "West African CFA Franc", currency_code: "XOF", currency_value_note: "1 XOF ≈ 0.0016 USD", flag_emoji: "🇹🇬" },
+  "TN": { name: "Tunisia", continent: "Africa", capital: "Tunis", top_cities: ["Tunis", "Sfax", "Sousse"], population: "12 million", languages: ["Arabic", "French", "Berber"], currency_name: "Tunisian Dinar", currency_code: "TND", currency_value_note: "1 TND ≈ 0.32 USD", flag_emoji: "🇹🇳" },
+  "UG": { name: "Uganda", continent: "Africa", capital: "Kampala", top_cities: ["Kampala", "Gulu", "Lira"], population: "49 million", languages: ["English", "Swahili", "Luganda"], currency_name: "Ugandan Shilling", currency_code: "UGX", currency_value_note: "1 UGX ≈ 0.00027 USD", flag_emoji: "🇺🇬" },
+  "ZM": { name: "Zambia", continent: "Africa", capital: "Lusaka", top_cities: ["Lusaka", "Kitwe", "Ndola"], population: "20 million", languages: ["English", "Bemba", "Tonga"], currency_name: "Zambian Kwacha", currency_code: "ZMW", currency_value_note: "1 ZMW ≈ 0.037 USD", flag_emoji: "🇿🇲" },
+  "ZW": { name: "Zimbabwe", continent: "Africa", capital: "Harare", top_cities: ["Harare", "Bulawayo", "Chitungwiza"], population: "16 million", languages: ["English", "Shona", "Ndebele"], currency_name: "Zimbabwe Gold", currency_code: "ZiG", currency_value_note: "1 ZiG ≈ 0.070 USD", flag_emoji: "🇿🇼" },
+
+  /* ── ASIA ────────────────────────────────────────────────── */
+  "AF": { name: "Afghanistan", continent: "Asia", capital: "Kabul", top_cities: ["Kabul", "Kandahar", "Herat"], population: "42 million", languages: ["Pashto", "Dari", "Uzbek"], currency_name: "Afghan Afghani", currency_code: "AFN", currency_value_note: "1 AFN ≈ 0.014 USD", flag_emoji: "🇦🇫" },
+  "AM": { name: "Armenia", continent: "Asia", capital: "Yerevan", top_cities: ["Yerevan", "Gyumri", "Vanadzor"], population: "3 million", languages: ["Armenian", "Russian", "Kurdish"], currency_name: "Armenian Dram", currency_code: "AMD", currency_value_note: "1 AMD ≈ 0.0026 USD", flag_emoji: "🇦🇲" },
+  "AZ": { name: "Azerbaijan", continent: "Asia", capital: "Baku", top_cities: ["Baku", "Ganja", "Sumqayit"], population: "10 million", languages: ["Azerbaijani", "Russian", "Armenian"], currency_name: "Azerbaijani Manat", currency_code: "AZN", currency_value_note: "1 AZN ≈ 0.59 USD", flag_emoji: "🇦🇿" },
+  "BH": { name: "Bahrain", continent: "Asia", capital: "Manama", top_cities: ["Manama", "Riffa", "Muharraq"], population: "1.5 million", languages: ["Arabic", "English", "Persian"], currency_name: "Bahraini Dinar", currency_code: "BHD", currency_value_note: "1 BHD ≈ 2.65 USD", flag_emoji: "🇧🇭" },
+  "BD": { name: "Bangladesh", continent: "Asia", capital: "Dhaka", top_cities: ["Dhaka", "Chittagong", "Khulna"], population: "173 million", languages: ["Bengali", "English", "Chakma"], currency_name: "Bangladeshi Taka", currency_code: "BDT", currency_value_note: "1 BDT ≈ 0.0085 USD", flag_emoji: "🇧🇩" },
+  "BT": { name: "Bhutan", continent: "Asia", capital: "Thimphu", top_cities: ["Thimphu", "Phuntsholing", "Paro"], population: "780,000", languages: ["Dzongkha", "Nepali", "English"], currency_name: "Bhutanese Ngultrum", currency_code: "BTN", currency_value_note: "1 BTN ≈ 0.012 USD", flag_emoji: "🇧🇹" },
+  "BN": { name: "Brunei", continent: "Asia", capital: "Bandar Seri Begawan", top_cities: ["Bandar Seri Begawan", "Kuala Belait", "Seria"], population: "450,000", languages: ["Malay", "English", "Chinese"], currency_name: "Brunei Dollar", currency_code: "BND", currency_value_note: "1 BND ≈ 0.75 USD", flag_emoji: "🇧🇳" },
+  "KH": { name: "Cambodia", continent: "Asia", capital: "Phnom Penh", top_cities: ["Phnom Penh", "Siem Reap", "Battambang"], population: "17 million", languages: ["Khmer", "French", "English"], currency_name: "Cambodian Riel", currency_code: "KHR", currency_value_note: "1 KHR ≈ 0.00025 USD", flag_emoji: "🇰🇭" },
+  "GE": { name: "Georgia", continent: "Asia", capital: "Tbilisi", top_cities: ["Tbilisi", "Kutaisi", "Batumi"], population: "3.7 million", languages: ["Georgian", "Russian", "Armenian"], currency_name: "Georgian Lari", currency_code: "GEL", currency_value_note: "1 GEL ≈ 0.36 USD", flag_emoji: "🇬🇪" },
+  "IR": { name: "Iran", continent: "Asia", capital: "Tehran", top_cities: ["Tehran", "Mashhad", "Isfahan"], population: "88 million", languages: ["Persian", "Azerbaijani", "Kurdish"], currency_name: "Iranian Rial", currency_code: "IRR", currency_value_note: "1 IRR ≈ 0.000023 USD", flag_emoji: "🇮🇷" },
+  "IQ": { name: "Iraq", continent: "Asia", capital: "Baghdad", top_cities: ["Baghdad", "Basra", "Mosul"], population: "43 million", languages: ["Arabic", "Kurdish", "Turkmen"], currency_name: "Iraqi Dinar", currency_code: "IQD", currency_value_note: "1 IQD ≈ 0.00076 USD", flag_emoji: "🇮🇶" },
+  "IL": { name: "Israel", continent: "Asia", capital: "Jerusalem", top_cities: ["Jerusalem", "Tel Aviv", "Haifa"], population: "9.8 million", languages: ["Hebrew", "Arabic", "English"], currency_name: "Israeli New Shekel", currency_code: "ILS", currency_value_note: "1 ILS ≈ 0.27 USD", flag_emoji: "🇮🇱" },
+  "JO": { name: "Jordan", continent: "Asia", capital: "Amman", top_cities: ["Amman", "Zarqa", "Irbid"], population: "11 million", languages: ["Arabic", "English", "French"], currency_name: "Jordanian Dinar", currency_code: "JOD", currency_value_note: "1 JOD ≈ 1.41 USD", flag_emoji: "🇯🇴" },
+  "KZ": { name: "Kazakhstan", continent: "Asia", capital: "Astana", top_cities: ["Almaty", "Astana", "Shymkent"], population: "20 million", languages: ["Kazakh", "Russian", "Uzbek"], currency_name: "Kazakhstani Tenge", currency_code: "KZT", currency_value_note: "1 KZT ≈ 0.0019 USD", flag_emoji: "🇰🇿" },
+  "KW": { name: "Kuwait", continent: "Asia", capital: "Kuwait City", top_cities: ["Kuwait City", "Hawalli", "Al Ahmadi"], population: "4.9 million", languages: ["Arabic", "English", "Filipino"], currency_name: "Kuwaiti Dinar", currency_code: "KWD", currency_value_note: "1 KWD ≈ 3.26 USD", flag_emoji: "🇰🇼" },
+  "KG": { name: "Kyrgyzstan", continent: "Asia", capital: "Bishkek", top_cities: ["Bishkek", "Osh", "Jalal-Abad"], population: "7 million", languages: ["Kyrgyz", "Russian", "Uzbek"], currency_name: "Kyrgystani Som", currency_code: "KGS", currency_value_note: "1 KGS ≈ 0.011 USD", flag_emoji: "🇰🇬" },
+  "LA": { name: "Laos", continent: "Asia", capital: "Vientiane", top_cities: ["Vientiane", "Pakse", "Savannakhet"], population: "7.6 million", languages: ["Lao", "French", "English"], currency_name: "Lao Kip", currency_code: "LAK", currency_value_note: "1 LAK ≈ 0.000047 USD", flag_emoji: "🇱🇦" },
+  "LB": { name: "Lebanon", continent: "Asia", capital: "Beirut", top_cities: ["Beirut", "Tripoli", "Sidon"], population: "5.5 million", languages: ["Arabic", "French", "English"], currency_name: "Lebanese Pound", currency_code: "LBP", currency_value_note: "1 LBP ≈ 0.000011 USD", flag_emoji: "🇱🇧" },
+  "MY": { name: "Malaysia", continent: "Asia", capital: "Kuala Lumpur", top_cities: ["Kuala Lumpur", "George Town", "Johor Bahru"], population: "34 million", languages: ["Malay", "English", "Chinese"], currency_name: "Malaysian Ringgit", currency_code: "MYR", currency_value_note: "1 MYR ≈ 0.22 USD", flag_emoji: "🇲🇾" },
+  "MV": { name: "Maldives", continent: "Asia", capital: "Malé", top_cities: ["Malé", "Addu City", "Fuvahmulah"], population: "530,000", languages: ["Maldivian", "English"], currency_name: "Maldivian Rufiyaa", currency_code: "MVR", currency_value_note: "1 MVR ≈ 0.065 USD", flag_emoji: "🇲🇻" },
+  "MN": { name: "Mongolia", continent: "Asia", capital: "Ulaanbaatar", top_cities: ["Ulaanbaatar", "Erdenet", "Darkhan"], population: "3.4 million", languages: ["Mongolian", "Russian", "Chinese"], currency_name: "Mongolian Tögrög", currency_code: "MNT", currency_value_note: "1 MNT ≈ 0.00029 USD", flag_emoji: "🇲🇳" },
+  "MM": { name: "Myanmar", continent: "Asia", capital: "Naypyidaw", top_cities: ["Yangon", "Mandalay", "Naypyidaw"], population: "54 million", languages: ["Burmese", "Shan", "Karen"], currency_name: "Myanmar Kyat", currency_code: "MMK", currency_value_note: "1 MMK ≈ 0.00048 USD", flag_emoji: "🇲🇲" },
+  "NP": { name: "Nepal", continent: "Asia", capital: "Kathmandu", top_cities: ["Kathmandu", "Pokhara", "Lalitpur"], population: "30 million", languages: ["Nepali", "Maithili", "Bhojpuri"], currency_name: "Nepalese Rupee", currency_code: "NPR", currency_value_note: "1 NPR ≈ 0.0075 USD", flag_emoji: "🇳🇵" },
+  "KP": { name: "North Korea", continent: "Asia", capital: "Pyongyang", top_cities: ["Pyongyang", "Hamhung", "Chongjin"], population: "26 million", languages: ["Korean"], currency_name: "North Korean Won", currency_code: "KPW", currency_value_note: "1 KPW ≈ 0.0011 USD (official)", flag_emoji: "🇰🇵" },
+  "OM": { name: "Oman", continent: "Asia", capital: "Muscat", top_cities: ["Muscat", "Seeb", "Salalah"], population: "4.7 million", languages: ["Arabic", "English", "Baluchi"], currency_name: "Omani Rial", currency_code: "OMR", currency_value_note: "1 OMR ≈ 2.60 USD", flag_emoji: "🇴🇲" },
+  "PK": { name: "Pakistan", continent: "Asia", capital: "Islamabad", top_cities: ["Karachi", "Lahore", "Islamabad"], population: "240 million", languages: ["Urdu", "Punjabi", "Sindhi"], currency_name: "Pakistani Rupee", currency_code: "PKR", currency_value_note: "1 PKR ≈ 0.0036 USD", flag_emoji: "🇵🇰" },
+  "PH": { name: "Philippines", continent: "Asia", capital: "Manila", top_cities: ["Manila", "Quezon City", "Davao"], population: "115 million", languages: ["Filipino", "English", "Ilocano"], currency_name: "Philippine Peso", currency_code: "PHP", currency_value_note: "1 PHP ≈ 0.017 USD", flag_emoji: "🇵🇭" },
+  "QA": { name: "Qatar", continent: "Asia", capital: "Doha", top_cities: ["Doha", "Al Rayyan", "Al Wakrah"], population: "3 million", languages: ["Arabic", "English", "Hindi"], currency_name: "Qatari Riyal", currency_code: "QAR", currency_value_note: "1 QAR ≈ 0.27 USD", flag_emoji: "🇶🇦" },
+  "SG": { name: "Singapore", continent: "Asia", capital: "Singapore", top_cities: ["Singapore"], population: "6 million", languages: ["English", "Mandarin", "Malay"], currency_name: "Singapore Dollar", currency_code: "SGD", currency_value_note: "1 SGD ≈ 0.75 USD", flag_emoji: "🇸🇬" },
+  "KR": { name: "South Korea", continent: "Asia", capital: "Seoul", top_cities: ["Seoul", "Busan", "Incheon"], population: "52 million", languages: ["Korean", "English"], currency_name: "South Korean Won", currency_code: "KRW", currency_value_note: "1 KRW ≈ 0.00069 USD", flag_emoji: "🇰🇷" },
+  "LK": { name: "Sri Lanka", continent: "Asia", capital: "Sri Jayawardenepura Kotte", top_cities: ["Colombo", "Kandy", "Galle"], population: "22 million", languages: ["Sinhala", "Tamil", "English"], currency_name: "Sri Lankan Rupee", currency_code: "LKR", currency_value_note: "1 LKR ≈ 0.0033 USD", flag_emoji: "🇱🇰" },
+  "SY": { name: "Syria", continent: "Asia", capital: "Damascus", top_cities: ["Damascus", "Aleppo", "Homs"], population: "22 million", languages: ["Arabic", "Kurdish", "Armenian"], currency_name: "Syrian Pound", currency_code: "SYP", currency_value_note: "1 SYP ≈ 0.000077 USD", flag_emoji: "🇸🇾" },
+  "TW": { name: "Taiwan", continent: "Asia", capital: "Taipei", top_cities: ["New Taipei", "Taipei", "Kaohsiung"], population: "23 million", languages: ["Mandarin", "Taiwanese", "Hakka"], currency_name: "New Taiwan Dollar", currency_code: "TWD", currency_value_note: "1 TWD ≈ 0.031 USD", flag_emoji: "🇹🇼" },
+  "TJ": { name: "Tajikistan", continent: "Asia", capital: "Dushanbe", top_cities: ["Dushanbe", "Khujand", "Kulob"], population: "10 million", languages: ["Tajik", "Russian", "Uzbek"], currency_name: "Tajikistani Somoni", currency_code: "TJS", currency_value_note: "1 TJS ≈ 0.092 USD", flag_emoji: "🇹🇯" },
+  "TH": { name: "Thailand", continent: "Asia", capital: "Bangkok", top_cities: ["Bangkok", "Nonthaburi", "Chiang Mai"], population: "72 million", languages: ["Thai", "Isan", "Malay"], currency_name: "Thai Baht", currency_code: "THB", currency_value_note: "1 THB ≈ 0.029 USD", flag_emoji: "🇹🇭" },
+  "TL": { name: "Timor-Leste", continent: "Asia", capital: "Dili", top_cities: ["Dili", "Baucau", "Maliana"], population: "1.4 million", languages: ["Tetum", "Portuguese", "Indonesian"], currency_name: "US Dollar", currency_code: "USD", currency_value_note: "Uses USD as official currency", flag_emoji: "🇹🇱" },
+  "TR": { name: "Türkiye", continent: "Asia", capital: "Ankara", top_cities: ["Istanbul", "Ankara", "Izmir"], population: "85 million", languages: ["Turkish", "Kurdish", "Arabic"], currency_name: "Turkish Lira", currency_code: "TRY", currency_value_note: "1 TRY ≈ 0.029 USD", flag_emoji: "🇹🇷" },
+  "TM": { name: "Turkmenistan", continent: "Asia", capital: "Ashgabat", top_cities: ["Ashgabat", "Türkmenabat", "Daşoguz"], population: "6.2 million", languages: ["Turkmen", "Russian", "Uzbek"], currency_name: "Turkmenistani Manat", currency_code: "TMT", currency_value_note: "1 TMT ≈ 0.29 USD", flag_emoji: "🇹🇲" },
+  "UZ": { name: "Uzbekistan", continent: "Asia", capital: "Tashkent", top_cities: ["Tashkent", "Samarkand", "Namangan"], population: "36 million", languages: ["Uzbek", "Russian", "Tajik"], currency_name: "Uzbekistani Sum", currency_code: "UZS", currency_value_note: "1 UZS ≈ 0.000078 USD", flag_emoji: "🇺🇿" },
+  "VN": { name: "Vietnam", continent: "Asia", capital: "Hanoi", top_cities: ["Ho Chi Minh City", "Hanoi", "Da Nang"], population: "98 million", languages: ["Vietnamese", "Tay", "Thai"], currency_name: "Vietnamese Đồng", currency_code: "VND", currency_value_note: "1 VND ≈ 0.000039 USD", flag_emoji: "🇻🇳" },
+  "YE": { name: "Yemen", continent: "Asia", capital: "Sana'a", top_cities: ["Sana'a", "Aden", "Taiz"], population: "34 million", languages: ["Arabic", "Somali", "English"], currency_name: "Yemeni Rial", currency_code: "YER", currency_value_note: "1 YER ≈ 0.0040 USD", flag_emoji: "🇾🇪" },
+
+  /* ── OCEANIA ─────────────────────────────────────────────── */
+  "FJ": { name: "Fiji", continent: "Oceania", capital: "Suva", top_cities: ["Suva", "Lautoka", "Nadi"], population: "930,000", languages: ["English", "Fijian", "Hindi"], currency_name: "Fijian Dollar", currency_code: "FJD", currency_value_note: "1 FJD ≈ 0.44 USD", flag_emoji: "🇫🇯" },
+  "KI": { name: "Kiribati", continent: "Oceania", capital: "South Tarawa", top_cities: ["South Tarawa", "Betio", "Bikenibeu"], population: "120,000", languages: ["English", "Gilbertese"], currency_name: "Australian Dollar", currency_code: "AUD", currency_value_note: "1 AUD ≈ 0.65 USD", flag_emoji: "🇰🇮" },
+  "MH": { name: "Marshall Islands", continent: "Oceania", capital: "Majuro", top_cities: ["Majuro", "Ebeye", "Jaluit"], population: "42,000", languages: ["Marshallese", "English"], currency_name: "US Dollar", currency_code: "USD", currency_value_note: "Uses USD as official currency", flag_emoji: "🇲🇭" },
+  "FM": { name: "Micronesia", continent: "Oceania", capital: "Palikir", top_cities: ["Weno", "Palikir", "Kolonia"], population: "110,000", languages: ["English", "Chuukese", "Pohnpeian"], currency_name: "US Dollar", currency_code: "USD", currency_value_note: "Uses USD as official currency", flag_emoji: "🇫🇲" },
+  "NR": { name: "Nauru", continent: "Oceania", capital: "Yaren", top_cities: ["Yaren", "Aiwo", "Anabar"], population: "11,000", languages: ["Nauruan", "English"], currency_name: "Australian Dollar", currency_code: "AUD", currency_value_note: "1 AUD ≈ 0.65 USD", flag_emoji: "🇳🇷" },
+  "NZ": { name: "New Zealand", continent: "Oceania", capital: "Wellington", top_cities: ["Auckland", "Wellington", "Christchurch"], population: "5.1 million", languages: ["English", "Māori", "Samoan"], currency_name: "New Zealand Dollar", currency_code: "NZD", currency_value_note: "1 NZD ≈ 0.59 USD", flag_emoji: "🇳🇿" },
+  "PW": { name: "Palau", continent: "Oceania", capital: "Ngerulmud", top_cities: ["Koror", "Airai", "Ngerulmud"], population: "18,000", languages: ["Palauan", "English"], currency_name: "US Dollar", currency_code: "USD", currency_value_note: "Uses USD as official currency", flag_emoji: "🇵🇼" },
+  "PG": { name: "Papua New Guinea", continent: "Oceania", capital: "Port Moresby", top_cities: ["Port Moresby", "Lae", "Mount Hagen"], population: "10 million", languages: ["Tok Pisin", "English", "Hiri Motu"], currency_name: "Papua New Guinean Kina", currency_code: "PGK", currency_value_note: "1 PGK ≈ 0.27 USD", flag_emoji: "🇵🇬" },
+  "WS": { name: "Samoa", continent: "Oceania", capital: "Apia", top_cities: ["Apia", "Vaitele", "Faleolo"], population: "220,000", languages: ["Samoan", "English"], currency_name: "Samoan Tālā", currency_code: "WST", currency_value_note: "1 WST ≈ 0.37 USD", flag_emoji: "🇼🇸" },
+  "SB": { name: "Solomon Islands", continent: "Oceania", capital: "Honiara", top_cities: ["Honiara", "Gizo", "Auki"], population: "740,000", languages: ["English", "Pijin", "Roviana"], currency_name: "Solomon Islands Dollar", currency_code: "SBD", currency_value_note: "1 SBD ≈ 0.12 USD", flag_emoji: "🇸🇧" },
+  "TO": { name: "Tonga", continent: "Oceania", capital: "Nukuʻalofa", top_cities: ["Nukuʻalofa", "Neiafu", "Haveluloto"], population: "100,000", languages: ["Tongan", "English"], currency_name: "Tongan Paʻanga", currency_code: "TOP", currency_value_note: "1 TOP ≈ 0.42 USD", flag_emoji: "🇹🇴" },
+  "TV": { name: "Tuvalu", continent: "Oceania", capital: "Funafuti", top_cities: ["Funafuti", "Savave", "Tanrake"], population: "11,000", languages: ["Tuvaluan", "English"], currency_name: "Australian Dollar", currency_code: "AUD", currency_value_note: "1 AUD ≈ 0.65 USD", flag_emoji: "🇹🇻" },
+  "VU": { name: "Vanuatu", continent: "Oceania", capital: "Port Vila", top_cities: ["Port Vila", "Luganville", "Norsup"], population: "330,000", languages: ["Bislama", "English", "French"], currency_name: "Vanuatu Vatu", currency_code: "VUV", currency_value_note: "1 VUV ≈ 0.0083 USD", flag_emoji: "🇻🇺" }
+};
+
+/* ================================================================
+   MAP STYLE PRESETS
+   — Three states: default (idle), active (selected), muted (de-emphasised)
+   ================================================================ */
+const STYLES = {
+  default: {
+    fillColor:   '#c4b99a',
+    fillOpacity: 0.82,
+    color:       '#9a8f7e',
+    weight:      0.8,
+    smoothFactor: 1
+  },
+  active: {
+    fillColor:   '#2563eb',
+    fillOpacity: 0.92,
+    color:       '#1d4ed8',
+    weight:      2.5,
+    smoothFactor: 1
+  },
+  muted: {
+    fillColor:   '#d4d0cb',
+    fillOpacity: 0.38,
+    color:       '#b8b4ae',
+    weight:      0.4,
+    smoothFactor: 1
+  }
+};
+
+/* ================================================================
+   APPLICATION STATE
+   — hoverCode:  ISO_A2 of the country currently under the cursor
+   — lockedCode: ISO_A2 of the click-pinned country (persists after mouse-out)
+   — geoJsonLayer: the Leaflet GeoJSON layer once loaded
+   — layersByCode: { "US": leafletLayer, ... } for O(1) style updates
+   ================================================================ */
+let hoverCode    = null;
+let lockedCode   = null;
+let geoJsonLayer = null;
+const layersByCode = {};
+
+/** Returns the ISO code that should drive the UI right now. */
+function getEffectiveCode() {
+  return lockedCode !== null ? lockedCode : hoverCode;
+}
+
+/* ================================================================
+   INITIALISE LEAFLET MAP
+   ================================================================ */
+const map = L.map('map', {
+  center:          [20, 0],
+  zoom:            2,
+  minZoom:         1.5,
+  maxZoom:         10,
+  worldCopyJump:   true,
+  zoomControl:     true,
+  attributionControl: true
+});
+
+// Move zoom control to bottom-left so it doesn't clash with the info panel
+map.zoomControl.setPosition('bottomleft');
+
+// Clicking empty ocean/space clears the pin
+map.on('click', function () {
+  if (lockedCode !== null) {
+    lockedCode = null;
+    updateStyles();
+    updatePanel();
+  }
+});
+
+/* ================================================================
+   LOAD WORLD GEOJSON
+   Source: Natural Earth via the "geo-countries" dataset on GitHub.
+   Each Feature has:  properties['ISO3166-1-Alpha-2']  ("US", "DE", "-99" for unknowns)
+                      properties.name                  ("United States", "Germany" …)
+
+   To use a local file later, replace the URL with './world.geojson'
+   ================================================================ */
+const GEOJSON_URL =
+  'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+
+fetch(GEOJSON_URL)
+  .then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  })
+  .then(function (geojson) {
+
+    // Create the GeoJSON layer with initial default styles
+    geoJsonLayer = L.geoJSON(geojson, {
+      style:          function () { return Object.assign({}, STYLES.default); },
+      onEachFeature:  bindFeatureEvents
+    }).addTo(map);
+
+    // Build the layersByCode lookup after adding to map
+    // NOTE: this GeoJSON uses 'ISO3166-1-Alpha-2' and 'name' (not 'ISO_A2'/'ADMIN')
+    geoJsonLayer.eachLayer(function (layer) {
+      var props = layer.feature.properties;
+      var iso   = props['ISO3166-1-Alpha-2'];
+      if (iso && iso !== '-99') {
+        layersByCode[iso] = layer;
+      } else {
+        var key = '_n_' + normaliseName(props.name || '');
+        layersByCode[key] = layer;
+      }
+    });
+
+    // Fit to world bounds
+    map.fitBounds([[-60, -180], [82, 180]]);
+    hideLoading();
+  })
+  .catch(function (err) {
+    console.error('GeoJSON load failed:', err);
+    document.querySelector('.loading-text').textContent =
+      'Failed to load map data. Check your internet connection.';
+  });
+
+/* ================================================================
+   BIND MOUSE / TOUCH EVENTS TO EACH COUNTRY POLYGON
+   ================================================================ */
+function bindFeatureEvents(feature, layer) {
+  layer.on({
+    mouseover: onHoverEnter,
+    mouseout:  onHoverLeave,
+    click:     onCountryClick
+  });
+}
+
+function onHoverEnter(e) {
+  var code = resolveCode(e.target.feature);
+  if (code === hoverCode) return;   // already hovering this country
+  hoverCode = code;
+  updateStyles();
+  updatePanel();
+}
+
+function onHoverLeave() {
+  hoverCode = null;
+  updateStyles();
+  // Only close the panel if nothing is pinned
+  if (lockedCode === null) {
+    updatePanel();
+  }
+}
+
+function onCountryClick(e) {
+  // Stop the map's own click handler from firing (which would clear the lock)
+  L.DomEvent.stopPropagation(e);
+
+  var code = resolveCode(e.target.feature);
+
+  if (lockedCode === code) {
+    // Clicking the same pinned country unlocks it
+    lockedCode = null;
+  } else {
+    lockedCode = code;
+  }
+
+  updateStyles();
+  updatePanel();
+}
+
+/* ================================================================
+   RESOLVE ISO CODE FROM A GEOJSON FEATURE
+   — returns ISO_A2 when available, otherwise a normalised name key
+   ================================================================ */
+function resolveCode(feature) {
+  var iso = feature.properties['ISO3166-1-Alpha-2'];
+  if (iso && iso !== '-99') return iso;
+  return '_n_' + normaliseName(feature.properties.name || '');
+}
+
+/* ================================================================
+   NORMALISE A COUNTRY NAME TO A STABLE LOWERCASE KEY
+   Used to match GeoJSON ADMIN names against COUNTRY_DATA entries
+   when ISO codes are unavailable or mismatched.
+   ================================================================ */
+function normaliseName(name) {
+  return name.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+/* ================================================================
+   UPDATE ALL LAYER STYLES
+   Iterates every polygon and applies the correct style preset.
+   Called on every hover/click change.
+   ================================================================ */
+function updateStyles() {
+  if (!geoJsonLayer) return;
+
+  var effective = getEffectiveCode();
+
+  geoJsonLayer.eachLayer(function (layer) {
+    var code = resolveCode(layer.feature);
+
+    if (!effective) {
+      // Nothing active — reset everything to default
+      layer.setStyle(STYLES.default);
+
+    } else if (code === effective) {
+      // This is the active country
+      layer.setStyle(STYLES.active);
+      // Bring to front so its thick border renders on top
+      if (layer.bringToFront) layer.bringToFront();
+
+    } else {
+      // Everything else gets muted
+      layer.setStyle(STYLES.muted);
+    }
+  });
+}
+
+/* ================================================================
+   UPDATE INFO PANEL
+   Finds the country data, renders the card, and shows the panel.
+   ================================================================ */
+function updatePanel() {
+  var panel   = document.getElementById('info-panel');
+  var content = document.getElementById('panel-content');
+  var effective = getEffectiveCode();
+
+  if (!effective) {
+    panel.classList.remove('visible');
+    return;
+  }
+
+  // Look up facts in COUNTRY_DATA
+  var data = lookupData(effective);
+
+  // Get a human-readable name even if we have no facts
+  var displayName = data ? data.name : nameFromCode(effective);
+
+  content.innerHTML = renderCard(data, displayName);
+  panel.classList.add('visible');
+}
+
+/* ================================================================
+   LOOK UP COUNTRY FACTS
+   — First tries direct ISO_A2 key
+   — Falls back to matching by normalised name (for _n_ keys)
+   ================================================================ */
+function lookupData(code) {
+  // Direct ISO match
+  if (COUNTRY_DATA[code]) return COUNTRY_DATA[code];
+
+  // Name-based match for countries without a valid ISO_A2
+  if (code.startsWith('_n_')) {
+    var target = code.slice(3);
+    for (var iso in COUNTRY_DATA) {
+      if (normaliseName(COUNTRY_DATA[iso].name) === target) {
+        return COUNTRY_DATA[iso];
+      }
+    }
+  }
+
+  return null;
+}
+
+/* ================================================================
+   RESOLVE A READABLE NAME FROM AN EFFECTIVE CODE
+   Used when we have no COUNTRY_DATA entry for the code.
+   ================================================================ */
+function nameFromCode(code) {
+  if (!geoJsonLayer) return code;
+
+  if (code.startsWith('_n_')) {
+    // Re-derive from GeoJSON ADMIN field
+    var target = code.slice(3);
+    var found  = code; // fallback to key
+    geoJsonLayer.eachLayer(function (layer) {
+      var admin = layer.feature.properties.name || '';
+      if (normaliseName(admin) === target) found = admin;
+    });
+    return found;
+  }
+
+  return code; // ISO code itself if all else fails
+}
+
+/* ================================================================
+   RENDER FLASHCARD HTML
+   — data:        COUNTRY_DATA entry (or null if not available)
+   — displayName: human-readable country name
+   ================================================================ */
+function renderCard(data, displayName) {
+  var locked = lockedCode !== null;
+
+  // ── No data state ────────────────────────────────────────────
+  if (!data) {
+    return (
+      '<div class="country-header">' +
+        '<span class="country-flag">🌐</span>' +
+        '<div class="country-name">' + esc(displayName) + '</div>' +
+      '</div>' +
+      '<div class="no-data-body">' +
+        '<div class="no-data-icon">📋</div>' +
+        '<div class="no-data-title">No detailed data yet</div>' +
+        '<div class="no-data-text">' +
+          'Add an entry to the <code>COUNTRY_DATA</code> object at the top of the script ' +
+          'using the same shape as the existing 20 countries.' +
+        '</div>' +
+      '</div>' +
+      pinHint(locked)
+    );
+  }
+
+  // ── Full card ─────────────────────────────────────────────────
+  var cities = data.top_cities.map(function (c) {
+    return '<span class="tag">' + esc(c) + '</span>';
+  }).join('');
+
+  var langs = data.languages.map(function (l) {
+    return '<span class="tag">' + esc(l) + '</span>';
+  }).join('');
+
+  return (
+    // Country header
+    '<div class="country-header">' +
+      '<span class="country-flag">' + data.flag_emoji + '</span>' +
+      '<div class="country-name">'  + esc(data.name)  + '</div>' +
+      '<span class="continent-badge">' + esc(data.continent) + '</span>' +
+    '</div>' +
+
+    // Overview: capital + population
+    '<div class="data-section">' +
+      '<div class="section-label">Overview</div>' +
+      '<div class="kv-grid">' +
+        '<div class="kv-item">' +
+          '<div class="kv-key">Capital</div>' +
+          '<div class="kv-val">' + esc(data.capital) + '</div>' +
+        '</div>' +
+        '<div class="kv-item">' +
+          '<div class="kv-key">Population</div>' +
+          '<div class="kv-val">' + esc(data.population) + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    // Major cities
+    '<div class="data-section">' +
+      '<div class="section-label">Major Cities</div>' +
+      '<div class="tag-list">' + cities + '</div>' +
+    '</div>' +
+
+    // Languages
+    '<div class="data-section">' +
+      '<div class="section-label">Languages</div>' +
+      '<div class="tag-list">' + langs + '</div>' +
+    '</div>' +
+
+    // Currency
+    '<div class="data-section">' +
+      '<div class="section-label">Currency</div>' +
+      '<div class="currency-block">' +
+        '<div class="currency-top">' +
+          '<span class="currency-code">' + esc(data.currency_code) + '</span>' +
+          '<span class="currency-name">' + esc(data.currency_name) + '</span>' +
+        '</div>' +
+        '<div class="currency-rate">' + esc(data.currency_value_note) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    pinHint(locked)
+  );
+}
+
+/* ================================================================
+   RENDER PIN HINT BAR
+   ================================================================ */
+function pinHint(isLocked) {
+  if (isLocked) {
+    return (
+      '<div class="pin-hint is-locked">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">' +
+          '<path d="M16 1a2 2 0 0 1 2 2v2.586L7.293 16.293A1 1 0 0 0 7 17v3a1 1 0 0 0 1 ' +
+          '1h3a1 1 0 0 0 .707-.293L22 10.414V13a2 2 0 0 1-4 0v-.586l-1.707 1.707A1 1 0 ' +
+          '0 1 15.586 15H13v-2.586a1 1 0 0 1 .293-.707L16 9.586V7h-2.586a1 1 0 0 ' +
+          '1-.707-.293L11.414 5H11V3a2 2 0 0 1 2-2h3z"/>' +
+        '</svg>' +
+        'Pinned — click country again or click ocean to unpin' +
+      '</div>'
+    );
+  }
+  return (
+    '<div class="pin-hint">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+           'stroke-width="2" style="flex-shrink:0">' +
+        '<circle cx="12" cy="12" r="3"/>' +
+        '<path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42' +
+              'M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>' +
+      '</svg>' +
+      'Click to pin this card open' +
+    '</div>'
+  );
+}
+
+/* ================================================================
+   HIDE LOADING OVERLAY (called after GeoJSON loads)
+   ================================================================ */
+function hideLoading() {
+  var overlay = document.getElementById('loading-overlay');
+  overlay.classList.add('hidden');
+  setTimeout(function () {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }, 500);
+}
+
+/* ================================================================
+   UTILITY: HTML ESCAPE
+   Prevents XSS when injecting data into innerHTML.
+   ================================================================ */
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/*
+  ================================================================
+  EXPANSION GUIDE (quick reference for future development)
+  ================================================================
+
+  1. ADD MORE COUNTRIES
+     Append objects to COUNTRY_DATA above — same shape, ISO_A2 key.
+     Use the full 250-country ISO list; no other code changes needed.
+
+  2. SPLIT INTO SEPARATE FILES
+     index.html  → keep only HTML skeleton
+     styles.css  → cut all <style> contents here
+     script.js   → cut all <script> contents here
+     countries.json → extract COUNTRY_DATA and fetch('./countries.json')
+     world.geojson  → download the file and serve locally
+
+  3. LIVE EXCHANGE RATES
+     Replace the static `currency_value_note` with a real value:
+
+       fetch('https://open.er-api.com/v6/latest/USD')
+         .then(r => r.json())
+         .then(d => {
+           var rate = d.rates[data.currency_code];
+           // display as "1 USD = X [CODE]" or invert as needed
+         });
+
+  4. SEARCH / FILTER
+     Add <input id="search"> in the header.
+     On input, call normaliseName(query) and highlight matching layers.
+
+  5. DARK MODE
+     Add [data-theme="dark"] CSS rules that override the :root vars.
+     Toggle with document.documentElement.dataset.theme = 'dark'.
+
+  6. ZOOM TO COUNTRY ON CLICK
+     Inside onCountryClick, after setting lockedCode, add:
+       map.fitBounds(e.target.getBounds(), { padding: [40, 40] });
+
+  7. KEYBOARD ACCESSIBILITY
+     Add tabindex to each layer via SVG element, handle Enter/Space
+     as click, Escape to clear — standard ARIA pattern.
+  ================================================================
+*/
+</script>
+</body>
+</html>
