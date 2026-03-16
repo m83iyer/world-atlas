@@ -256,6 +256,12 @@
     .leaflet-grab    { cursor: grab;    }
     .leaflet-grabbing{ cursor: grabbing; }
 
+    /* Feature 1: smooth pop/lift animation for country selection */
+    .leaflet-interactive {
+      transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
+                  filter   0.18s ease;
+    }
+
     /* Clean up zoom control */
     .leaflet-control-zoom {
       border: none !important;
@@ -1458,27 +1464,39 @@ function updateStyles() {
       var continent   = countryData ? countryData.continent : null;
       var continentFill = continent ? (CONTINENT_COLORS[continent] || STYLES.default.fillColor) : STYLES.default.fillColor;
       layer.setStyle(Object.assign({}, STYLES.default, { fillColor: continentFill }));
-      // Feature 1: remove drop-shadow when nothing active
-      if (el) el.style.filter = '';
+      // Feature 1: remove pop effect when nothing active
+      if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
 
     } else if (code === effective) {
       // This is the active country
       layer.setStyle(STYLES.active);
       // Bring to front so its thick border renders on top
       if (layer.bringToFront) layer.bringToFront();
-      // Feature 1: apply pop drop-shadow
-      if (el) el.style.filter = 'drop-shadow(0 4px 12px rgba(37,99,235,0.5))';
+      // Feature 1: pop/lift effect — scale up from the country's geographic centre
+      if (el) {
+        var center = layer.getBounds().getCenter();
+        var pt     = map.latLngToContainerPoint(center);
+        el.style.transformOrigin = pt.x + 'px ' + pt.y + 'px';
+        el.style.transform       = 'scale(1.08)';
+        el.style.filter          = 'drop-shadow(0 6px 16px rgba(37,99,235,0.55))';
+      }
 
     } else if (code === compareCode) {
-      // Feature 9: comparison country gets secondary accent colour
+      // Feature 9: comparison country gets secondary accent colour + pop
       layer.setStyle({ fillColor: '#7c3aed', fillOpacity: 0.88, color: '#6d28d9', weight: 2.5, smoothFactor: 1 });
       if (layer.bringToFront) layer.bringToFront();
-      if (el) el.style.filter = 'drop-shadow(0 4px 12px rgba(124,58,237,0.5))';
+      if (el) {
+        var center2 = layer.getBounds().getCenter();
+        var pt2     = map.latLngToContainerPoint(center2);
+        el.style.transformOrigin = pt2.x + 'px ' + pt2.y + 'px';
+        el.style.transform       = 'scale(1.06)';
+        el.style.filter          = 'drop-shadow(0 6px 16px rgba(124,58,237,0.55))';
+      }
 
     } else {
-      // Everything else gets muted
+      // Everything else gets muted — reset any pop
       layer.setStyle(STYLES.muted);
-      if (el) el.style.filter = '';
+      if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
     }
   });
 }
