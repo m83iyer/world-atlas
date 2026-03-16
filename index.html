@@ -1453,6 +1453,21 @@ function updateStyles() {
 
   var effective = getEffectiveCode();
 
+  // Compute a smart pop scale based on the country's pixel footprint at the
+  // current zoom level — small countries get a big jump, large ones subtle.
+  function popScale(layer, maxScale) {
+    var bounds = layer.getBounds();
+    var sw = map.latLngToContainerPoint(bounds.getSouthWest());
+    var ne = map.latLngToContainerPoint(bounds.getNorthEast());
+    var pxW    = Math.abs(ne.x - sw.x);
+    var pxH    = Math.abs(ne.y - sw.y);
+    var diag   = Math.sqrt(pxW * pxW + pxH * pxH) || 1;
+    // Larger diagonal = already big on screen = less scale needed.
+    // 160 / diag gives: 10px→16x, 20px→8x, 50px→3.2x, 160px→1x.
+    // Clamp between 1.08 (big countries) and maxScale (tiny ones).
+    return Math.min(maxScale, Math.max(1.08, 160 / diag));
+  }
+
   geoJsonLayer.eachLayer(function (layer) {
     var code = resolveCode(layer.feature);
     var el   = layer.getElement ? layer.getElement() : null;
@@ -1463,33 +1478,32 @@ function updateStyles() {
       var continent   = countryData ? countryData.continent : null;
       var continentFill = continent ? (CONTINENT_COLORS[continent] || STYLES.default.fillColor) : STYLES.default.fillColor;
       layer.setStyle(Object.assign({}, STYLES.default, { fillColor: continentFill }));
-      // Feature 1: remove pop effect when nothing active
       if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
 
     } else if (code === effective) {
       // This is the active country
       layer.setStyle(STYLES.active);
-      // Bring to front so its thick border renders on top
       if (layer.bringToFront) layer.bringToFront();
-      // Feature 1: pop/lift effect — scale up from the country's geographic centre
       if (el) {
         var center = layer.getBounds().getCenter();
         var pt     = map.latLngToContainerPoint(center);
+        var sc     = popScale(layer, 4.0);
         el.style.transformOrigin = pt.x + 'px ' + pt.y + 'px';
-        el.style.transform       = 'scale(1.08)';
-        el.style.filter          = 'drop-shadow(0 6px 16px rgba(37,99,235,0.55))';
+        el.style.transform       = 'scale(' + sc + ')';
+        el.style.filter          = 'drop-shadow(0 6px 20px rgba(37,99,235,0.6))';
       }
 
     } else if (code === compareCode) {
-      // Feature 9: comparison country gets secondary accent colour + pop
+      // Feature 9: comparison country — purple + pop
       layer.setStyle({ fillColor: '#7c3aed', fillOpacity: 0.88, color: '#6d28d9', weight: 2.5, smoothFactor: 1 });
       if (layer.bringToFront) layer.bringToFront();
       if (el) {
         var center2 = layer.getBounds().getCenter();
         var pt2     = map.latLngToContainerPoint(center2);
+        var sc2     = popScale(layer, 3.5);
         el.style.transformOrigin = pt2.x + 'px ' + pt2.y + 'px';
-        el.style.transform       = 'scale(1.06)';
-        el.style.filter          = 'drop-shadow(0 6px 16px rgba(124,58,237,0.55))';
+        el.style.transform       = 'scale(' + sc2 + ')';
+        el.style.filter          = 'drop-shadow(0 6px 20px rgba(124,58,237,0.6))';
       }
 
     } else {
