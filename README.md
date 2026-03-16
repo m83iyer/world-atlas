@@ -1,114 +1,15 @@
-# 🌍 World Atlas — Interactive Country Explorer
+# World Atlas
 
-A polished, single-file interactive world map that lets you explore key facts about every country on Earth. Built with Leaflet.js and vanilla JavaScript — no build step, no framework, no backend.
+Interactive map of every country on Earth — hover to explore, click to pin.
 
----
-
-## Preview
-
-> Hover or click any country to highlight it, mute the rest, and reveal a rich info panel with flag, capital, population, cities, languages, and currency data.
+🌐 **[Live demo](https://m83iyer.github.io/world-atlas/)**
 
 ---
 
-## Features
+Built with [Leaflet.js](https://leafletjs.com) and vanilla JavaScript. No install needed — just open `index.html` in a browser.
 
-- 🗺️ **Full world political map** with country borders and zoom/pan
-- 🖱️ **Hover to preview** — active country pops forward, everything else fades
-- 📌 **Click to pin** — card stays open as you move around the map
-- 📋 **Country flashcard** — flag, continent, capital, population, top cities, languages, currency
-- 🌐 **~195 countries** covered — every UN member state + Taiwan
-- 📱 **Responsive** — right-side panel on desktop, bottom sheet on mobile
-- ⚡ **Zero dependencies** to install — opens straight in the browser
+**Requires internet** on first load for map tiles and country data.
 
 ---
 
-## Getting Started
-
-### Run locally
-
-No server required. Just open the file:
-
-```bash
-open index.html
-```
-
-Or double-click `index.html` in Finder.
-
-> **Requires internet** for two CDN resources on first load:
-> - Leaflet 1.9.4 (unpkg.com)
-> - World GeoJSON — Natural Earth via datasets/geo-countries (raw.githubusercontent.com)
-
----
-
-## Project Structure
-
-```
-world-atlas/
-├── index.html          # Complete app — HTML + CSS + JS in one file
-└── README.md
-```
-
-### Inside `index.html`
-
-| Section | Purpose |
-|---|---|
-| CSS custom properties | Design tokens — change 6 variables to retheme the whole app |
-| `COUNTRY_DATA` | ~195 country fact objects, keyed by ISO Alpha-2 code |
-| `STYLES` | Three Leaflet style presets: default / active / muted |
-| Map init | Leaflet setup, zoom controls, world bounds |
-| GeoJSON fetch | Loads world polygons from CDN, builds `layersByCode` lookup |
-| Event handlers | Hover, mouse-out, click, map-click state machine |
-| `updateStyles()` | Iterates all layers and applies the correct style |
-| `updatePanel()` | Renders the flashcard HTML into the info panel |
-
----
-
-## Interaction Model
-
-```
-Hover country  →  preview mode  →  panel slides in
-Mouse out      →  panel closes  (unless pinned)
-Click country  →  pin mode      →  panel stays open
-Click again    →  unpin         →  panel closes
-Click ocean    →  unpin         →  panel closes
-```
-
----
-
----
-
-## Roadmap
-
-- [x] Country search box
-- [x] Continent colour tinting (subtle per-continent default colours)
-- [x] Dark mode (moon/sun toggle with localStorage persistence)
-- [x] Zoom to country on click (smooth flyToBounds animation)
-- [x] Country comparison mode (Shift+click a second country)
-- [x] Country pop on selection (drop-shadow lift effect)
-- [x] Smooth flashcard transitions (cross-fade on panel content change)
-- [x] Panel loading skeleton (shimmer animation before content renders)
-- [x] Floating country name tooltip (hover tooltip centred on country)
-- [x] Mobile bottom sheet drag handle (snap positions for mobile panel)
-- [x] Currency section visual upgrade (exchange rate note added)
-- [ ] Live exchange rates via open.er-api.com
-- [ ] Export country card as image
-- [ ] Full offline mode (local GeoJSON)
-- [ ] Keyboard accessibility (tab, Enter, Escape)
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Map engine | [Leaflet 1.9.4](https://leafletjs.com) |
-| Map data | [Natural Earth via geo-countries](https://github.com/datasets/geo-countries) |
-| Language | Vanilla JavaScript (ES5-compatible) |
-| Styling | CSS custom properties, no preprocessor |
-| Fonts | System UI stack — no external font CDN |
-
----
-
-## License
-
-MIT — free to use, modify, and distribute.
+MIT License
