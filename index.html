@@ -740,7 +740,7 @@
     </div>
     <div class="header-right">
       <button id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
-      <div class="hint-dot" title="Hover or tap a country to explore"></div>
+      <div class="hint-dot" title="Hover to preview · Click to select · Click ocean to reset"></div>
       <div class="search-wrapper">
         <span class="search-icon">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1241,6 +1241,14 @@ const STYLES = {
     weight:      2.5,
     smoothFactor: 1
   },
+  // Hover preview — highlighted but no scale
+  hover: {
+    fillColor:   '#2563eb',
+    fillOpacity: 0.72,
+    color:       '#1d4ed8',
+    weight:      2.0,
+    smoothFactor: 1
+  },
   muted: {
     fillColor:   '#d4d0cb',
     fillOpacity: 0.38,
@@ -1428,13 +1436,15 @@ function onCountryClick(e) {
     return;
   }
 
-  // Normal click behaviour — pin/unpin panel, no zoom
+  // Normal click — lock/unlock country (triggers swell when locked)
   compareCode = null;
   if (lockedCode === code) {
-    // Clicking the same pinned country unlocks it
     lockedCode = null;
   } else {
     lockedCode = code;
+    hoverCode  = null;  // clear hover so the two states don't overlap
+    clearTimeout(_hoverEnterTimer);
+    clearTimeout(_hoverLeaveTimer);
   }
 
   updateStyles();
@@ -1490,15 +1500,15 @@ function updateStyles() {
     var el   = layer.getElement ? layer.getElement() : null;
 
     if (!effective) {
-      // Nothing active — reset everything to default with continent tinting (Feature 6)
-      var countryData = COUNTRY_DATA[code];
-      var continent   = countryData ? countryData.continent : null;
+      // Nothing active — continent tint, no pop
+      var countryData   = COUNTRY_DATA[code];
+      var continent     = countryData ? countryData.continent : null;
       var continentFill = continent ? (CONTINENT_COLORS[continent] || STYLES.default.fillColor) : STYLES.default.fillColor;
       layer.setStyle(Object.assign({}, STYLES.default, { fillColor: continentFill }));
       if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
 
-    } else if (code === effective) {
-      // This is the active country
+    } else if (code === lockedCode) {
+      // CLICKED country — full highlight + scale pop
       layer.setStyle(STYLES.active);
       if (layer.bringToFront) layer.bringToFront();
       if (el) {
@@ -1511,8 +1521,14 @@ function updateStyles() {
         el.style.filter          = 'drop-shadow(0 6px 20px rgba(37,99,235,0.6))';
       }
 
+    } else if (code === hoverCode) {
+      // HOVERED country — highlight only, no scale (keeps neighbours accessible)
+      layer.setStyle(STYLES.hover);
+      if (layer.bringToFront) layer.bringToFront();
+      if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
+
     } else if (code === compareCode) {
-      // Feature 9: comparison country — purple + pop
+      // Comparison country — purple + pop
       layer.setStyle({ fillColor: '#7c3aed', fillOpacity: 0.88, color: '#6d28d9', weight: 2.5, smoothFactor: 1 });
       if (layer.bringToFront) layer.bringToFront();
       if (el) {
@@ -1526,7 +1542,7 @@ function updateStyles() {
       }
 
     } else {
-      // Everything else gets muted — reset any pop
+      // Everything else — muted, no pop
       layer.setStyle(STYLES.muted);
       if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
     }
@@ -1729,7 +1745,7 @@ function pinHint(isLocked) {
           '0 1 15.586 15H13v-2.586a1 1 0 0 1 .293-.707L16 9.586V7h-2.586a1 1 0 0 ' +
           '1-.707-.293L11.414 5H11V3a2 2 0 0 1 2-2h3z"/>' +
         '</svg>' +
-        'Pinned — Shift+click another country to compare' +
+        'Selected — Shift+click another country to compare · Click ocean to dismiss' +
       '</div>'
     );
   }
@@ -1741,7 +1757,7 @@ function pinHint(isLocked) {
         '<path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42' +
               'M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>' +
       '</svg>' +
-      'Click to pin this card open' +
+      'Click to select &amp; expand this country' +
     '</div>'
   );
 }
