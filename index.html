@@ -1301,20 +1301,13 @@ map.zoomControl.setPosition('bottomleft');
 initTheme();
 
 // Clicking empty ocean/space clears the pin and flies back to world view
-// Map click handler — fires for ocean clicks AND clicks on the active
-// country (which has pointer-events:none so its own click is bypassed).
+// Ocean / background click — clear everything and return to world view
 map.on('click', function () {
-  if (hoverCode && !lockedCode) {
-    // Clicked while hovering a country → pin it
-    lockedCode = hoverCode;
-    updateStyles();
-    updatePanel();
-    return;
-  }
-  // Ocean click (or clicking pinned area) → clear everything, world view
   lockedCode  = null;
   compareCode = null;
   hoverCode   = null;
+  clearTimeout(_hoverEnterTimer);
+  clearTimeout(_hoverLeaveTimer);
   updateStyles();
   updatePanel();
   map.flyTo([20, 0], 2, { duration: 0.9, easeLinearity: 0.35 });
@@ -1390,21 +1383,35 @@ function bindFeatureEvents(feature, layer) {
   });
 }
 
+// Debounce timers — prevent flicker when cursor skims borders
+var _hoverEnterTimer = null;
+var _hoverLeaveTimer = null;
+
 function onHoverEnter(e) {
   var code = resolveCode(e.target.feature);
-  if (code === hoverCode) return;   // already hovering this country
-  hoverCode = code;
-  updateStyles();
-  updatePanel();
+  if (code === hoverCode) return;
+  // Cancel any pending leave, then wait briefly before committing the enter.
+  // This swallows the rapid enter→leave→enter bursts that happen at borders.
+  clearTimeout(_hoverLeaveTimer);
+  clearTimeout(_hoverEnterTimer);
+  _hoverEnterTimer = setTimeout(function () {
+    hoverCode = code;
+    updateStyles();
+    updatePanel();
+  }, 40);
 }
 
 function onHoverLeave() {
-  hoverCode = null;
-  updateStyles();
-  // Only close the panel if nothing is pinned
-  if (lockedCode === null) {
-    updatePanel();
-  }
+  clearTimeout(_hoverEnterTimer);
+  // Short grace period — if the cursor enters another country within this
+  // window the leave is cancelled and the panel never flickers closed.
+  _hoverLeaveTimer = setTimeout(function () {
+    hoverCode = null;
+    if (lockedCode === null) {
+      updateStyles();
+      updatePanel();
+    }
+  }, 80);
 }
 
 function onCountryClick(e) {
@@ -1488,22 +1495,20 @@ function updateStyles() {
       var continent   = countryData ? countryData.continent : null;
       var continentFill = continent ? (CONTINENT_COLORS[continent] || STYLES.default.fillColor) : STYLES.default.fillColor;
       layer.setStyle(Object.assign({}, STYLES.default, { fillColor: continentFill }));
-      if (el) { el.style.pointerEvents = ''; el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
+      if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
 
     } else if (code === effective) {
       // This is the active country
       layer.setStyle(STYLES.active);
       if (layer.bringToFront) layer.bringToFront();
       if (el) {
-        var sc  = popScale(layer, 4.0);
-        var bb  = el.getBBox ? el.getBBox() : null;
-        var ox  = bb ? (bb.x + bb.width  / 2) : 0;
-        var oy  = bb ? (bb.y + bb.height / 2) : 0;
+        var sc = popScale(layer, 2.5);
+        var bb = el.getBBox ? el.getBBox() : null;
+        var ox = bb ? (bb.x + bb.width  / 2) : 0;
+        var oy = bb ? (bb.y + bb.height / 2) : 0;
         el.style.transformOrigin = ox + 'px ' + oy + 'px';
         el.style.transform       = 'scale(' + sc + ')';
         el.style.filter          = 'drop-shadow(0 6px 20px rgba(37,99,235,0.6))';
-        // Scaled hit-area would block neighbours — let events pass through
-        el.style.pointerEvents   = 'none';
       }
 
     } else if (code === compareCode) {
@@ -1511,20 +1516,19 @@ function updateStyles() {
       layer.setStyle({ fillColor: '#7c3aed', fillOpacity: 0.88, color: '#6d28d9', weight: 2.5, smoothFactor: 1 });
       if (layer.bringToFront) layer.bringToFront();
       if (el) {
-        var sc2 = popScale(layer, 3.5);
+        var sc2 = popScale(layer, 2.0);
         var bb2 = el.getBBox ? el.getBBox() : null;
         var ox2 = bb2 ? (bb2.x + bb2.width  / 2) : 0;
         var oy2 = bb2 ? (bb2.y + bb2.height / 2) : 0;
         el.style.transformOrigin = ox2 + 'px ' + oy2 + 'px';
         el.style.transform       = 'scale(' + sc2 + ')';
         el.style.filter          = 'drop-shadow(0 6px 20px rgba(124,58,237,0.6))';
-        el.style.pointerEvents   = 'none';
       }
 
     } else {
       // Everything else gets muted — reset any pop
       layer.setStyle(STYLES.muted);
-      if (el) { el.style.pointerEvents = ''; el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
+      if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
     }
   });
 }
