@@ -1301,7 +1301,17 @@ map.zoomControl.setPosition('bottomleft');
 initTheme();
 
 // Clicking empty ocean/space clears the pin and flies back to world view
+// Map click handler — fires for ocean clicks AND clicks on the active
+// country (which has pointer-events:none so its own click is bypassed).
 map.on('click', function () {
+  if (hoverCode && !lockedCode) {
+    // Clicked while hovering a country → pin it
+    lockedCode = hoverCode;
+    updateStyles();
+    updatePanel();
+    return;
+  }
+  // Ocean click (or clicking pinned area) → clear everything, world view
   lockedCode  = null;
   compareCode = null;
   hoverCode   = null;
@@ -1478,7 +1488,7 @@ function updateStyles() {
       var continent   = countryData ? countryData.continent : null;
       var continentFill = continent ? (CONTINENT_COLORS[continent] || STYLES.default.fillColor) : STYLES.default.fillColor;
       layer.setStyle(Object.assign({}, STYLES.default, { fillColor: continentFill }));
-      if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
+      if (el) { el.style.pointerEvents = ''; el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
 
     } else if (code === effective) {
       // This is the active country
@@ -1486,14 +1496,14 @@ function updateStyles() {
       if (layer.bringToFront) layer.bringToFront();
       if (el) {
         var sc  = popScale(layer, 4.0);
-        // getBBox() returns the path's own bounding box in SVG coordinates —
-        // the only reliable way to set transform-origin inside an SVG.
         var bb  = el.getBBox ? el.getBBox() : null;
         var ox  = bb ? (bb.x + bb.width  / 2) : 0;
         var oy  = bb ? (bb.y + bb.height / 2) : 0;
         el.style.transformOrigin = ox + 'px ' + oy + 'px';
         el.style.transform       = 'scale(' + sc + ')';
         el.style.filter          = 'drop-shadow(0 6px 20px rgba(37,99,235,0.6))';
+        // Scaled hit-area would block neighbours — let events pass through
+        el.style.pointerEvents   = 'none';
       }
 
     } else if (code === compareCode) {
@@ -1508,12 +1518,13 @@ function updateStyles() {
         el.style.transformOrigin = ox2 + 'px ' + oy2 + 'px';
         el.style.transform       = 'scale(' + sc2 + ')';
         el.style.filter          = 'drop-shadow(0 6px 20px rgba(124,58,237,0.6))';
+        el.style.pointerEvents   = 'none';
       }
 
     } else {
       // Everything else gets muted — reset any pop
       layer.setStyle(STYLES.muted);
-      if (el) { el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
+      if (el) { el.style.pointerEvents = ''; el.style.filter = ''; el.style.transform = ''; el.style.transformOrigin = ''; }
     }
   });
 }
