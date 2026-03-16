@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World Atlas — Interactive Country Explorer</title>
+
+  <!-- Leaflet CSS (split into its own file later: styles/leaflet.css) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    /* ================================================================
+       DESIGN TOKENS — change these to retheme the entire app
+       ================================================================ */
+    :root {
+      --accent:         #2563eb;
+      --accent-dark:    #1d4ed8;
+      --accent-light:   #dbeafe;
+      --bg-map:         #e8e2d5;
+      --bg-panel:       #ffffff;
+      --bg-header:      #12111a;
+      --text-primary:   #1a1a2e;
+      --text-secondary: #6b7280;
+      --text-muted:     #9ca3af;
+      --border-light:   #e5e0d8;
+      --border-medium:  #d1cdc4;
+      --shadow-panel:   -2px 0 24px rgba(0,0,0,0.10), -1px 0 0 #e5e0d8;
+      --radius-card:    10px;
+      --radius-tag:     20px;
+      --panel-width:    340px;
+      --header-height:  56px;
+      --font:           system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* ================================================================
+       RESET
+       ================================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg-map);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    /* ================================================================
+       APP SHELL
+       ================================================================ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ================================================================
+       HEADER
+       ================================================================ */
+    #header {
+      height: var(--header-height);
+      background: var(--bg-header);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+      z-index: 1000;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #f0f0f8;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: #55546a;
+      font-weight: 400;
+    }
+
+    .header-hint {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: #55546a;
+    }
+
+    .hint-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.25; }
+    }
+
+    /* ================================================================
+       MAP WRAPPER
+       ================================================================ */
+    #map-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Leaflet container background matches our map color */
+    .leaflet-container {
+      background: var(--bg-map) !important;
+      cursor: default;
+    }
+
+    .leaflet-grab    { cursor: grab;    }
+    .leaflet-grabbing{ cursor: grabbing; }
+
+    /* Clean up zoom control */
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.13) !important;
+      border-radius: 8px !important;
+      overflow: hidden;
+    }
+
+    .leaflet-control-zoom a {
+      background: #ffffff !important;
+      color: var(--text-primary) !important;
+      border: none !important;
+      font-size: 16px !important;
+      width: 32px !important;
+      height: 32px !important;
+      line-height: 32px !important;
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: #f4f0eb !important;
+    }
+
+    .leaflet-control-zoom-in  { border-bottom: 1px solid #eee !important; }
+
+    .leaflet-control-attribution {
+      background: rgba(255,255,255,0.65) !important;
+      font-size: 10px !important;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ================================================================
+       LOADING OVERLAY
+       ================================================================ */
+    #loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-map);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 800;
+      transition: opacity 0.45s ease;
+    }
+
+    #loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid var(--border-medium);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    /* ================================================================
+       INFO PANEL — fixed right side
+       To split into panel component later: extract into panel.js + panel.css
+       ================================================================ */
+    #info-panel {
+      position: fixed;
+      top: var(--header-height);
+      right: 0;
+      width: var(--panel-width);
+      height: calc(100vh - var(--header-height));
+      background: var(--bg-panel);
+      box-shadow: var(--shadow-panel);
+      z-index: 900;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-medium) transparent;
+
+      /* Hidden state — slides in from right */
+      transform: translateX(100%);
+      opacity: 0;
+      transition:
+        transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity   0.22s ease;
+    }
+
+    #info-panel::-webkit-scrollbar       { width: 4px; }
+    #info-panel::-webkit-scrollbar-track { background: transparent; }
+    #info-panel::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 2px; }
+
+    /* Visible state */
+    #info-panel.visible {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    /* ================================================================
+       PANEL — COUNTRY HEADER
+       ================================================================ */
+    .country-header {
+      padding: 26px 24px 20px;
+      border-bottom: 1px solid var(--border-light);
+      background: linear-gradient(145deg, #fafaf8 0%, #f3efe8 100%);
+    }
+
+    .country-flag {
+      font-size: 46px;
+      line-height: 1;
+      margin-bottom: 10px;
+      display: block;
+      /* Crisp emoji rendering */
+      text-rendering: optimizeLegibility;
+    }
+
+    .country-name {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .continent-badge {
+      display: inline-flex;
+      align-items: center;
+      background: var(--accent-light);
+      color: var(--accent-dark);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: var(--radius-tag);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ================================================================
+       PANEL — DATA SECTIONS
+       ================================================================ */
+    .data-section {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .data-section:last-of-type { border-bottom: none; }
+
+    .section-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* Two-column grid for key/value pairs */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 12px;
+    }
+
+    .kv-item { display: flex; flex-direction: column; gap: 3px; }
+    .kv-item.full { grid-column: 1 / -1; }
+
+    .kv-key {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+    }
+
+    .kv-val {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    /* ================================================================
+       PANEL — TAGS (cities, languages)
+       ================================================================ */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      background: #f4f0eb;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: var(--radius-tag);
+      border: 1px solid var(--border-light);
+    }
+
+    /* ================================================================
+       PANEL — CURRENCY BLOCK
+       ================================================================ */
+    .currency-block {
+      background: #f8f6f2;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-card);
+      padding: 13px 14px;
+    }
+
+    .currency-top {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .currency-code {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+    }
+
+    .currency-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .currency-rate {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      letter-spacing: 0.01em;
+    }
+
+    /* ================================================================
+       PANEL — PIN HINT BAR
+       ================================================================ */
+    .pin-hint {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 11px 24px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: #fafaf8;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .pin-hint.is-locked {
+      color: var(--accent-dark);
+      background: var(--accent-light);
+    }
+
+    /* ================================================================
+       PANEL — NO DATA STATE
+       ================================================================ */
+    .no-data-body {
+      padding: 28px 24px;
+      text-align: center;
+    }
+
+    .no-data-icon  { font-size: 38px; opacity: 0.35; margin-bottom: 10px; }
+    .no-data-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+    .no-data-text  { font-size: 12.5px; color: var(--text-secondary); line-height: 1.65; }
+    .no-data-text code {
+      background: #f0ede8;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    /* ================================================================
+       RESPONSIVE — mobile: panel slides up from bottom
+       ================================================================ */
+    @media (max-width: 768px) {
+      :root { --panel-width: 100vw; }
+
+      #info-panel {
+        top: auto;
+        bottom: 0;
+        height: 55vh;
+        width: 100%;
+        transform: translateY(110%);
+        box-shadow: 0 -4px 30px rgba(0,0,0,0.14);
+      }
+
+      #info-panel.visible { transform: translateY(0); }
+
+      .header-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header id="header">
+    <div class="logo">
+      <div class="logo-icon">🌍</div>
+      <span class="logo-text">World Atlas</span>
+      <span class="logo-sub">&nbsp;Interactive Explorer</span>
+    </div>
+    <div class="header-hint">
+      <div class="hint-dot"></div>
+      Hover or tap a country to explore
+    </div>
+  </header>
+
+  <!-- ============================================================
+       MAP
+       ============================================================ -->
+  <div id="map-wrapper">
+    <div id="map"></div>
+
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading world map&hellip;</div>
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- ============================================================
+     INFO PANEL  (lives outside #app so it overlays the map correctly)
+     ============================================================ -->
+<div id="info-panel" role="complementary" aria-label="Country information">
+  <div id="panel-content"></div>
+</div>
+
+<!-- Leaflet JS (split out later: <script src="lib/leaflet.js"></script>) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+'use strict';
+
+/* ================================================================
+   COUNTRY DATA
+   — 20 prototype entries keyed by ISO Alpha-2 code
+   — To expand: add more objects here with the same shape.
+     Zero other code changes needed.
+   — To externalise: move this object to countries.json and
+     fetch() it alongside the GeoJSON below.
+   ================================================================ */
+const COUNTRY_DATA = {
+  "US": {
+    name: "United States",
+    continent: "North America",
+    capital: "Washington, D.C.",
+    top_cities: ["New York", "Los Angeles", "Chicago"],
+    population: "335 million",
+    languages: ["English", "Spanish", "French"],
+    currency_name: "US Dollar",
+    currency_code: "USD",
+    currency_value_note: "Global reserve currency",
+    flag_emoji: "🇺🇸"
+  },
+  "CA": {
+    name: "Canada",
+    continent: "North America",
+    capital: "Ottawa",
+    top_cities: ["Toronto", "Vancouver", "Montréal"],
+    population: "40 million",
+    languages: ["English", "French", "Punjabi"],
+    currency_name: "Canadian Dollar",
+    currency_code: "CAD",
+    currency_value_note: "1 CAD ≈ 0.73 USD",
+    flag_emoji: "🇨🇦"
+  },
+  "MX": {
+    name: "Mexico",
+    continent: "North America",
+    capital: "Mexico City",
+    top_cities: ["Mexico City", "Guadalajara", "Monterrey"],
+    population: "130 million",
+    languages: ["Spanish", "Nahuatl", "Mayan"],
+    currency_name: "Mexican Peso",
+    currency_code: "MXN",
+    currency_value_note: "1 MXN ≈ 0.058 USD",
+    flag_emoji: "🇲🇽"
+  },
+  "BR": {
+    name: "Brazil",
+    continent: "South America",
+    capital: "Brasília",
+    top_cities: ["São Paulo", "Rio de Janeiro", "Salvador"],
+    population: "215 million",
+    languages: ["Portuguese", "Spanish", "English"],
+    currency_name: "Brazilian Real",
+    currency_code: "BRL",
+    currency_value_note: "1 BRL ≈ 0.20 USD",
+    flag_emoji: "🇧🇷"
+  },
+  "AR": {
+    name: "Argentina",
+    continent: "South America",
+    capital: "Buenos Aires",
+    top_cities: ["Buenos Aires", "Córdoba", "Rosario"],
+    population: "46 million",
+    languages: ["Spanish", "Italian", "Quechua"],
+    currency_name: "Argentine Peso",
+    currency_code: "ARS",
+    currency_value_note: "1 ARS ≈ 0.001 USD",
+    flag_emoji: "🇦🇷"
+  },
+  "GB": {
+    name: "United Kingdom",
+    continent: "Europe",
+    capital: "London",
+    top_cities: ["London", "Birmingham", "Manchester"],
+    population: "67 million",
+    languages: ["English", "Welsh", "Scottish Gaelic"],
+    currency_name: "Pound Sterling",
+    currency_code: "GBP",
+    currency_value_note: "1 GBP ≈ 1.27 USD",
+    flag_emoji: "🇬🇧"
+  },
+  "DE": {
+    name: "Germany",
+    continent: "Europe",
+    capital: "Berlin",
+    top_cities: ["Berlin", "Hamburg", "Munich"],
+    population: "84 million",
+    languages: ["German", "Turkish", "English"],
+    currency_name: "Euro",
+    currency_code: "EUR",
+    currency_value_note: "1 EUR ≈ 1.08 USD",
+    flag_emoji: "🇩🇪"
+  },
+  "FR": {
+    name: "France",
+    continent: "Europe",
+    capital: "Paris",
+    top_cities: ["Paris", "Marseille", "Lyon"],
+    population: "68 million",
+    languages: ["French", "Arabic", "Occitan"],
+    currency_name: "Euro",
+    currency_code: "EUR",
+    currency_value_note: "1 EUR ≈ 1.08 USD",
+    flag_emoji: "🇫🇷"
+  },
+  "RU": {
+    name: "Russia",
+    continent: "Europe / Asia",
+    capital: "Moscow",
+    top_cities: ["Moscow", "Saint Petersburg", "Novosibirsk"],
+    population: "145 million",
+    languages: ["Russian", "Tatar", "Chechen"],
+    currency_name: "Russian Ruble",
+    currency_code: "RUB",
+    currency_value_note: "1 RUB ≈ 0.011 USD",
+    flag_emoji: "🇷🇺"
+  },
+  "CN": {
+    name: "China",
+    continent: "Asia",
+    capital: "Beijing",
+    top_cities: ["Shanghai", "Beijing", "Guangzhou"],
+    population: "1.41 billion",
+    languages: ["Mandarin", "Cantonese", "Wu"],
+    currency_name: "Chinese Yuan",
+    currency_code: "CNY",
+    currency_value_note: "1 CNY ≈ 0.14 USD",
+    flag_emoji: "🇨🇳"
+  },
+  "IN": {
+    name: "India",
+    continent: "Asia",
+    capital: "New Delhi",
+    top_cities: ["Mumbai", "Delhi", "Bangalore"],
+    population: "1.44 billion",
+    languages: ["Hindi", "Bengali", "Telugu"],
+    currency_name: "Indian Rupee",
+    currency_code: "INR",
+    currency_value_note: "1 INR ≈ 0.012 USD",
+    flag_emoji: "🇮🇳"
+  },
+  "JP": {
+    name: "Japan",
+    continent: "Asia",
+    capital: "Tokyo",
+    top_cities: ["Tokyo", "Osaka", "Yokohama"],
+    population: "124 million",
+    languages: ["Japanese", "Ryukyuan", "Ainu"],
+    currency_name: "Japanese Yen",
+    currency_code: "JPY",
+    currency_value_note: "1 JPY ≈ 0.0066 USD",
+    flag_emoji: "🇯🇵"
+  },
+  "SA": {
+    name: "Saudi Arabia",
+    continent: "Asia",
+    capital: "Riyadh",
+    top_cities: ["Riyadh", "Jeddah", "Mecca"],
+    population: "36 million",
+    languages: ["Arabic", "English", "Filipino"],
+    currency_name: "Saudi Riyal",
+    currency_code: "SAR",
+    currency_value_note: "1 SAR ≈ 0.27 USD",
+    flag_emoji: "🇸🇦"
+  },
+  "AE": {
+    name: "United Arab Emirates",
+    continent: "Asia",
+    capital: "Abu Dhabi",
+    top_cities: ["Dubai", "Abu Dhabi", "Sharjah"],
+    population: "10.2 million",
+    languages: ["Arabic", "English", "Hindi/Urdu"],
+    currency_name: "UAE Dirham",
+    currency_code: "AED",
+    currency_value_note: "1 AED ≈ 0.27 USD",
+    flag_emoji: "🇦🇪"
+  },
+  "ID": {
+    name: "Indonesia",
+    continent: "Asia",
+    capital: "Jakarta",
+    top_cities: ["Jakarta", "Surabaya", "Bandung"],
+    population: "278 million",
+    languages: ["Indonesian", "Javanese", "Sundanese"],
+    currency_name: "Indonesian Rupiah",
+    currency_code: "IDR",
+    currency_value_note: "1 IDR ≈ 0.000064 USD",
+    flag_emoji: "🇮🇩"
+  },
+  "AU": {
+    name: "Australia",
+    continent: "Oceania",
+    capital: "Canberra",
+    top_cities: ["Sydney", "Melbourne", "Brisbane"],
+    population: "26 million",
+    languages: ["English", "Mandarin", "Arabic"],
+    currency_name: "Australian Dollar",
+    currency_code: "AUD",
+    currency_value_note: "1 AUD ≈ 0.65 USD",
+    flag_emoji: "🇦🇺"
+  },
+  "ZA": {
+    name: "South Africa",
+    continent: "Africa",
+    capital: "Pretoria",
+    top_cities: ["Johannesburg", "Cape Town", "Durban"],
+    population: "60 million",
+    languages: ["Zulu", "Xhosa", "Afrikaans"],
+    currency_name: "South African Rand",
+    currency_code: "ZAR",
+    currency_value_note: "1 ZAR ≈ 0.055 USD",
+    flag_emoji: "🇿🇦"
+  },
+  "NG": {
+    name: "Nigeria",
+    continent: "Africa",
+    capital: "Abuja",
+    top_cities: ["Lagos", "Kano", "Ibadan"],
+    population: "225 million",
+    languages: ["English", "Hausa", "Yoruba"],
+    currency_name: "Nigerian Naira",
+    currency_code: "NGN",
+    currency_value_note: "1 NGN ≈ 0.00063 USD",
+    flag_emoji: "🇳🇬"
+  },
+  "EG": {
+    name: "Egypt",
+    continent: "Africa",
+    capital: "Cairo",
+    top_cities: ["Cairo", "Alexandria", "Giza"],
+    population: "106 million",
+    languages: ["Arabic", "English", "French"],
+    currency_name: "Egyptian Pound",
+    currency_code: "EGP",
+    currency_value_note: "1 EGP ≈ 0.032 USD",
+    flag_emoji: "🇪🇬"
+  },
+  "KE": {
+    name: "Kenya",
+    continent: "Africa",
+    capital: "Nairobi",
+    top_cities: ["Nairobi", "Mombasa", "Kisumu"],
+    population: "56 million",
+    languages: ["Swahili", "English", "Kikuyu"],
+    currency_name: "Kenyan Shilling",
+    currency_code: "KES",
+    currency_value_note: "1 KES ≈ 0.0077 USD",
+    flag_emoji: "🇰🇪"
+  }
+};
+
+/* ================================================================
+   MAP STYLE PRESETS
+   — Three states: default (idle), active (selected), muted (de-emphasised)
+   ================================================================ */
+const STYLES = {
+  default: {
+    fillColor:   '#c4b99a',
+    fillOpacity: 0.82,
+    color:       '#9a8f7e',
+    weight:      0.8,
+    smoothFactor: 1
+  },
+  active: {
+    fillColor:   '#2563eb',
+    fillOpacity: 0.92,
+    color:       '#1d4ed8',
+    weight:      2.5,
+    smoothFactor: 1
+  },
+  muted: {
+    fillColor:   '#d4d0cb',
+    fillOpacity: 0.38,
+    color:       '#b8b4ae',
+    weight:      0.4,
+    smoothFactor: 1
+  }
+};
+
+/* ================================================================
+   APPLICATION STATE
+   — hoverCode:  ISO_A2 of the country currently under the cursor
+   — lockedCode: ISO_A2 of the click-pinned country (persists after mouse-out)
+   — geoJsonLayer: the Leaflet GeoJSON layer once loaded
+   — layersByCode: { "US": leafletLayer, ... } for O(1) style updates
+   ================================================================ */
+let hoverCode    = null;
+let lockedCode   = null;
+let geoJsonLayer = null;
+const layersByCode = {};
+
+/** Returns the ISO code that should drive the UI right now. */
+function getEffectiveCode() {
+  return lockedCode !== null ? lockedCode : hoverCode;
+}
+
+/* ================================================================
+   INITIALISE LEAFLET MAP
+   ================================================================ */
+const map = L.map('map', {
+  center:          [20, 0],
+  zoom:            2,
+  minZoom:         1.5,
+  maxZoom:         10,
+  worldCopyJump:   true,
+  zoomControl:     true,
+  attributionControl: true
+});
+
+// Move zoom control to bottom-left so it doesn't clash with the info panel
+map.zoomControl.setPosition('bottomleft');
+
+// Clicking empty ocean/space clears the pin
+map.on('click', function () {
+  if (lockedCode !== null) {
+    lockedCode = null;
+    updateStyles();
+    updatePanel();
+  }
+});
+
+/* ================================================================
+   LOAD WORLD GEOJSON
+   Source: Natural Earth via the "geo-countries" dataset on GitHub.
+   Each Feature has:  properties.ISO_A2  ("US", "DE", "-99" for unknowns)
+                      properties.ADMIN   ("United States", "Germany" …)
+
+   To use a local file later, replace the URL with './world.geojson'
+   ================================================================ */
+const GEOJSON_URL =
+  'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+
+fetch(GEOJSON_URL)
+  .then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  })
+  .then(function (geojson) {
+
+    // Create the GeoJSON layer with initial default styles
+    geoJsonLayer = L.geoJSON(geojson, {
+      style:          function () { return Object.assign({}, STYLES.default); },
+      onEachFeature:  bindFeatureEvents
+    }).addTo(map);
+
+    // Build the layersByCode lookup after adding to map
+    geoJsonLayer.eachLayer(function (layer) {
+      var props = layer.feature.properties;
+      var iso   = props.ISO_A2;
+      if (iso && iso !== '-99') {
+        layersByCode[iso] = layer;
+      } else {
+        // Fallback key for countries that lack a standard ISO_A2 (e.g. Kosovo)
+        var key = '_n_' + normaliseName(props.ADMIN || '');
+        layersByCode[key] = layer;
+      }
+    });
+
+    // Fit to world bounds
+    map.fitBounds([[-60, -180], [82, 180]]);
+    hideLoading();
+  })
+  .catch(function (err) {
+    console.error('GeoJSON load failed:', err);
+    document.querySelector('.loading-text').textContent =
+      'Failed to load map data. Check your internet connection.';
+  });
+
+/* ================================================================
+   BIND MOUSE / TOUCH EVENTS TO EACH COUNTRY POLYGON
+   ================================================================ */
+function bindFeatureEvents(feature, layer) {
+  layer.on({
+    mouseover: onHoverEnter,
+    mouseout:  onHoverLeave,
+    click:     onCountryClick
+  });
+}
+
+function onHoverEnter(e) {
+  var code = resolveCode(e.target.feature);
+  if (code === hoverCode) return;   // already hovering this country
+  hoverCode = code;
+  updateStyles();
+  updatePanel();
+}
+
+function onHoverLeave() {
+  hoverCode = null;
+  updateStyles();
+  // Only close the panel if nothing is pinned
+  if (lockedCode === null) {
+    updatePanel();
+  }
+}
+
+function onCountryClick(e) {
+  // Stop the map's own click handler from firing (which would clear the lock)
+  L.DomEvent.stopPropagation(e);
+
+  var code = resolveCode(e.target.feature);
+
+  if (lockedCode === code) {
+    // Clicking the same pinned country unlocks it
+    lockedCode = null;
+  } else {
+    lockedCode = code;
+  }
+
+  updateStyles();
+  updatePanel();
+}
+
+/* ================================================================
+   RESOLVE ISO CODE FROM A GEOJSON FEATURE
+   — returns ISO_A2 when available, otherwise a normalised name key
+   ================================================================ */
+function resolveCode(feature) {
+  var iso = feature.properties.ISO_A2;
+  if (iso && iso !== '-99') return iso;
+  return '_n_' + normaliseName(feature.properties.ADMIN || '');
+}
+
+/* ================================================================
+   NORMALISE A COUNTRY NAME TO A STABLE LOWERCASE KEY
+   Used to match GeoJSON ADMIN names against COUNTRY_DATA entries
+   when ISO codes are unavailable or mismatched.
+   ================================================================ */
+function normaliseName(name) {
+  return name.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+/* ================================================================
+   UPDATE ALL LAYER STYLES
+   Iterates every polygon and applies the correct style preset.
+   Called on every hover/click change.
+   ================================================================ */
+function updateStyles() {
+  if (!geoJsonLayer) return;
+
+  var effective = getEffectiveCode();
+
+  geoJsonLayer.eachLayer(function (layer) {
+    var code = resolveCode(layer.feature);
+
+    if (!effective) {
+      // Nothing active — reset everything to default
+      layer.setStyle(STYLES.default);
+
+    } else if (code === effective) {
+      // This is the active country
+      layer.setStyle(STYLES.active);
+      // Bring to front so its thick border renders on top
+      if (layer.bringToFront) layer.bringToFront();
+
+    } else {
+      // Everything else gets muted
+      layer.setStyle(STYLES.muted);
+    }
+  });
+}
+
+/* ================================================================
+   UPDATE INFO PANEL
+   Finds the country data, renders the card, and shows the panel.
+   ================================================================ */
+function updatePanel() {
+  var panel   = document.getElementById('info-panel');
+  var content = document.getElementById('panel-content');
+  var effective = getEffectiveCode();
+
+  if (!effective) {
+    panel.classList.remove('visible');
+    return;
+  }
+
+  // Look up facts in COUNTRY_DATA
+  var data = lookupData(effective);
+
+  // Get a human-readable name even if we have no facts
+  var displayName = data ? data.name : nameFromCode(effective);
+
+  content.innerHTML = renderCard(data, displayName);
+  panel.classList.add('visible');
+}
+
+/* ================================================================
+   LOOK UP COUNTRY FACTS
+   — First tries direct ISO_A2 key
+   — Falls back to matching by normalised name (for _n_ keys)
+   ================================================================ */
+function lookupData(code) {
+  // Direct ISO match
+  if (COUNTRY_DATA[code]) return COUNTRY_DATA[code];
+
+  // Name-based match for countries without a valid ISO_A2
+  if (code.startsWith('_n_')) {
+    var target = code.slice(3);
+    for (var iso in COUNTRY_DATA) {
+      if (normaliseName(COUNTRY_DATA[iso].name) === target) {
+        return COUNTRY_DATA[iso];
+      }
+    }
+  }
+
+  return null;
+}
+
+/* ================================================================
+   RESOLVE A READABLE NAME FROM AN EFFECTIVE CODE
+   Used when we have no COUNTRY_DATA entry for the code.
+   ================================================================ */
+function nameFromCode(code) {
+  if (!geoJsonLayer) return code;
+
+  if (code.startsWith('_n_')) {
+    // Re-derive from GeoJSON ADMIN field
+    var target = code.slice(3);
+    var found  = code; // fallback to key
+    geoJsonLayer.eachLayer(function (layer) {
+      var admin = layer.feature.properties.ADMIN || '';
+      if (normaliseName(admin) === target) found = admin;
+    });
+    return found;
+  }
+
+  return code; // ISO code itself if all else fails
+}
+
+/* ================================================================
+   RENDER FLASHCARD HTML
+   — data:        COUNTRY_DATA entry (or null if not available)
+   — displayName: human-readable country name
+   ================================================================ */
+function renderCard(data, displayName) {
+  var locked = lockedCode !== null;
+
+  // ── No data state ────────────────────────────────────────────
+  if (!data) {
+    return (
+      '<div class="country-header">' +
+        '<span class="country-flag">🌐</span>' +
+        '<div class="country-name">' + esc(displayName) + '</div>' +
+      '</div>' +
+      '<div class="no-data-body">' +
+        '<div class="no-data-icon">📋</div>' +
+        '<div class="no-data-title">No detailed data yet</div>' +
+        '<div class="no-data-text">' +
+          'Add an entry to the <code>COUNTRY_DATA</code> object at the top of the script ' +
+          'using the same shape as the existing 20 countries.' +
+        '</div>' +
+      '</div>' +
+      pinHint(locked)
+    );
+  }
+
+  // ── Full card ─────────────────────────────────────────────────
+  var cities = data.top_cities.map(function (c) {
+    return '<span class="tag">' + esc(c) + '</span>';
+  }).join('');
+
+  var langs = data.languages.map(function (l) {
+    return '<span class="tag">' + esc(l) + '</span>';
+  }).join('');
+
+  return (
+    // Country header
+    '<div class="country-header">' +
+      '<span class="country-flag">' + data.flag_emoji + '</span>' +
+      '<div class="country-name">'  + esc(data.name)  + '</div>' +
+      '<span class="continent-badge">' + esc(data.continent) + '</span>' +
+    '</div>' +
+
+    // Overview: capital + population
+    '<div class="data-section">' +
+      '<div class="section-label">Overview</div>' +
+      '<div class="kv-grid">' +
+        '<div class="kv-item">' +
+          '<div class="kv-key">Capital</div>' +
+          '<div class="kv-val">' + esc(data.capital) + '</div>' +
+        '</div>' +
+        '<div class="kv-item">' +
+          '<div class="kv-key">Population</div>' +
+          '<div class="kv-val">' + esc(data.population) + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    // Major cities
+    '<div class="data-section">' +
+      '<div class="section-label">Major Cities</div>' +
+      '<div class="tag-list">' + cities + '</div>' +
+    '</div>' +
+
+    // Languages
+    '<div class="data-section">' +
+      '<div class="section-label">Languages</div>' +
+      '<div class="tag-list">' + langs + '</div>' +
+    '</div>' +
+
+    // Currency
+    '<div class="data-section">' +
+      '<div class="section-label">Currency</div>' +
+      '<div class="currency-block">' +
+        '<div class="currency-top">' +
+          '<span class="currency-code">' + esc(data.currency_code) + '</span>' +
+          '<span class="currency-name">' + esc(data.currency_name) + '</span>' +
+        '</div>' +
+        '<div class="currency-rate">' + esc(data.currency_value_note) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    pinHint(locked)
+  );
+}
+
+/* ================================================================
+   RENDER PIN HINT BAR
+   ================================================================ */
+function pinHint(isLocked) {
+  if (isLocked) {
+    return (
+      '<div class="pin-hint is-locked">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">' +
+          '<path d="M16 1a2 2 0 0 1 2 2v2.586L7.293 16.293A1 1 0 0 0 7 17v3a1 1 0 0 0 1 ' +
+          '1h3a1 1 0 0 0 .707-.293L22 10.414V13a2 2 0 0 1-4 0v-.586l-1.707 1.707A1 1 0 ' +
+          '0 1 15.586 15H13v-2.586a1 1 0 0 1 .293-.707L16 9.586V7h-2.586a1 1 0 0 ' +
+          '1-.707-.293L11.414 5H11V3a2 2 0 0 1 2-2h3z"/>' +
+        '</svg>' +
+        'Pinned — click country again or click ocean to unpin' +
+      '</div>'
+    );
+  }
+  return (
+    '<div class="pin-hint">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+           'stroke-width="2" style="flex-shrink:0">' +
+        '<circle cx="12" cy="12" r="3"/>' +
+        '<path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42' +
+              'M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>' +
+      '</svg>' +
+      'Click to pin this card open' +
+    '</div>'
+  );
+}
+
+/* ================================================================
+   HIDE LOADING OVERLAY (called after GeoJSON loads)
+   ================================================================ */
+function hideLoading() {
+  var overlay = document.getElementById('loading-overlay');
+  overlay.classList.add('hidden');
+  setTimeout(function () {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }, 500);
+}
+
+/* ================================================================
+   UTILITY: HTML ESCAPE
+   Prevents XSS when injecting data into innerHTML.
+   ================================================================ */
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/*
+  ================================================================
+  EXPANSION GUIDE (quick reference for future development)
+  ================================================================
+
+  1. ADD MORE COUNTRIES
+     Append objects to COUNTRY_DATA above — same shape, ISO_A2 key.
+     Use the full 250-country ISO list; no other code changes needed.
+
+  2. SPLIT INTO SEPARATE FILES
+     index.html  → keep only HTML skeleton
+     styles.css  → cut all <style> contents here
+     script.js   → cut all <script> contents here
+     countries.json → extract COUNTRY_DATA and fetch('./countries.json')
+     world.geojson  → download the file and serve locally
+
+  3. LIVE EXCHANGE RATES
+     Replace the static `currency_value_note` with a real value:
+
+       fetch('https://open.er-api.com/v6/latest/USD')
+         .then(r => r.json())
+         .then(d => {
+           var rate = d.rates[data.currency_code];
+           // display as "1 USD = X [CODE]" or invert as needed
+         });
+
+  4. SEARCH / FILTER
+     Add <input id="search"> in the header.
+     On input, call normaliseName(query) and highlight matching layers.
+
+  5. DARK MODE
+     Add [data-theme="dark"] CSS rules that override the :root vars.
+     Toggle with document.documentElement.dataset.theme = 'dark'.
+
+  6. ZOOM TO COUNTRY ON CLICK
+     Inside onCountryClick, after setting lockedCode, add:
+       map.fitBounds(e.target.getBounds(), { padding: [40, 40] });
+
+  7. KEYBOARD ACCESSIBILITY
+     Add tabindex to each layer via SVG element, handle Enter/Space
+     as click, Escape to clear — standard ARIA pattern.
+  ================================================================
+*/
+</script>
+</body>
+</html>
