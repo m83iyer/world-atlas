@@ -612,6 +612,7 @@
        ================================================================ */
     #panel-drag-handle {
       display: none;
+      position: relative;
       padding: 14px 0 10px;
       cursor: grab;
       touch-action: none;
@@ -624,6 +625,25 @@
       border-radius: 2px;
       background: var(--border-medium);
       margin: 0 auto;
+    }
+    /* Close button — mobile only, shown in JS via CSS */
+    #panel-close-btn {
+      display: none;
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.07);
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      color: var(--text-muted);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
     }
 
     /* ================================================================
@@ -686,81 +706,60 @@
     @media (max-width: 768px) {
       :root { --panel-width: 100vw; }
 
-      /* ── Header: logo row + search row ── */
-      #header {
-        height: auto;
-        flex-wrap: wrap;
-        padding: 10px 16px 10px;
-        gap: 8px;
-        align-items: center;
-      }
+      /* ── Single-row header: 🌍 logo | search (flex) | 🌙 ── */
+      #header { padding: 0 12px; gap: 10px; }
 
-      .logo { flex: 1; min-width: 0; }
+      .logo { flex-shrink: 1; min-width: 0; }
       .logo-sub { display: none; }
+      .logo-text { font-size: 14px; }
 
-      /* Show header-right on mobile — theme toggle + search */
       .header-right {
         display: flex;
-        width: 100%;
+        flex: 1;
+        min-width: 0;
         gap: 8px;
-        order: 2;
       }
-
       .hint-dot { display: none; }
-
-      /* Search takes all remaining width */
-      .search-wrapper { flex: 1; }
+      .search-wrapper { flex: 1; min-width: 0; }
 
       #search-input {
         width: 100%;
-        height: 44px;
-        font-size: 16px;
+        height: 36px;
+        font-size: 15px;
         background: rgba(255,255,255,0.14);
-        border: 1.5px solid rgba(255,255,255,0.35);
-        color: #ffffff;
+        border: 1.5px solid rgba(255,255,255,0.4);
+        color: #fff;
         border-radius: 10px;
-        padding-left: 36px;
       }
-
-      #search-input::placeholder { color: rgba(255,255,255,0.55); }
-
+      #search-input::placeholder { color: rgba(255,255,255,0.5); }
       .search-icon { color: rgba(255,255,255,0.6); }
+      #search-dropdown { width: 100%; left: 0; right: 0; }
 
-      #search-dropdown {
-        width: 100%;
-        left: 0;
-        right: 0;
-      }
-
-      /* ── Bottom sheet panel ── */
+      /* ── Bottom sheet ── */
       #info-panel {
         top: auto;
         bottom: 0;
         height: 50vh;
         width: 100%;
         transform: translateY(110%);
-        box-shadow: 0 -4px 30px rgba(0,0,0,0.14);
+        box-shadow: 0 -4px 30px rgba(0,0,0,0.18);
         border-radius: 20px 20px 0 0;
         transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, height 0.2s ease;
       }
-
       #info-panel.visible { transform: translateY(0); }
 
-      /* ── Drag handle — bigger touch target for kids ── */
-      #panel-drag-handle {
-        display: block;
-        padding: 14px 0 12px;
-      }
+      /* ── Drag handle + close button ── */
+      #panel-drag-handle { display: block; padding: 14px 0 10px; }
       .drag-bar { width: 44px; }
+      #panel-close-btn { display: flex; }
 
-      /* ── Card content — more readable on small screens ── */
+      /* ── Card content — readable for kids ── */
       .country-name { font-size: 24px; }
       .kv-val { font-size: 16px; }
-      .kv-key { font-size: 11px; }
-      .section-label { font-size: 11px; }
+      .kv-key, .section-label { font-size: 11px; }
       .data-section { padding: 14px 20px; }
 
-      /* Zoom controls away from bottom sheet */
+      /* Zoom controls clear of the bottom sheet handle */
       .leaflet-control-zoom { margin-bottom: 16px !important; }
     }
   </style>
@@ -811,7 +810,7 @@
      INFO PANEL  (lives outside #app so it overlays the map correctly)
      ============================================================ -->
 <div id="info-panel" role="complementary" aria-label="Country information">
-  <div id="panel-drag-handle" aria-hidden="true"><div class="drag-bar"></div></div>
+  <div id="panel-drag-handle"><div class="drag-bar"></div><button id="panel-close-btn" aria-label="Back to map">✕</button></div>
   <div id="panel-content"></div>
 </div>
 
@@ -1324,6 +1323,9 @@ let compareCode  = null;
 let geoJsonLayer = null;
 const layersByCode = {};
 
+// Prevent accidental country selection while panning/zooming on touch
+let _mapMoved = false;
+
 /** Returns the ISO code that should drive the UI right now. */
 function getEffectiveCode() {
   return lockedCode !== null ? lockedCode : hoverCode;
@@ -1348,7 +1350,24 @@ map.zoomControl.setPosition('bottomleft');
 // Initialise theme toggle before GeoJSON fetch (Feature 7)
 initTheme();
 
-// Clicking empty ocean/space clears the pin and flies back to world view
+// Detect map panning so we don't treat a drag-end as a country tap
+map.on('dragstart', function () { _mapMoved = true; });
+map.on('dragend',   function () { setTimeout(function () { _mapMoved = false; }, 200); });
+map.on('zoomstart', function () { _mapMoved = true; });
+map.on('zoomend',   function () { setTimeout(function () { _mapMoved = false; }, 200); });
+
+// Mobile close button — resets everything and flies back to world view
+var _closeBtn = document.getElementById('panel-close-btn');
+if (_closeBtn) {
+  _closeBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    lockedCode = null; compareCode = null; hoverCode = null;
+    clearTimeout(_hoverEnterTimer); clearTimeout(_hoverLeaveTimer);
+    updateStyles(); updatePanel();
+    map.flyTo([20, 0], 2, { duration: 0.9, easeLinearity: 0.35 });
+  });
+}
+
 // Ocean / background click — clear everything and return to world view
 map.on('click', function () {
   lockedCode  = null;
@@ -1454,6 +1473,8 @@ function onHoverLeave() {
 }
 
 function onCountryClick(e) {
+  // Ignore touch-end events that were actually a pan/zoom gesture
+  if (_mapMoved) return;
   // Stop the map's own click handler from firing (which would clear the lock)
   L.DomEvent.stopPropagation(e);
 
