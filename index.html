@@ -1323,11 +1323,16 @@ let compareCode  = null;
 let geoJsonLayer = null;
 const layersByCode = {};
 
-// Track touch start position so we can measure finger movement.
-// If the finger moved more than TAP_THRESHOLD pixels between touchstart
-// and the resulting click, it was a pan — not a deliberate tap.
-var _touchStartX = 0, _touchStartY = 0;
-var TAP_THRESHOLD = 12; // pixels — anything above this is treated as a pan
+// Tap vs pan detection for touch devices.
+// _tapCancelled is set true in touchmove the moment the finger slides
+// more than TAP_THRESHOLD pixels. Leaflet's synthetic click fires after
+// touchend — by that point the flag is already set correctly.
+var _touchStartX  = 0, _touchStartY = 0;
+var _tapCancelled = false;
+var TAP_THRESHOLD = 10; // pixels
+
+// World bounds used for the "reset to full world" view
+var WORLD_BOUNDS = L.latLngBounds([[-65, -180], [82, 180]]);
 
 /** Returns the ISO code that should drive the UI right now. */
 function getEffectiveCode() {
@@ -1353,13 +1358,20 @@ map.zoomControl.setPosition('bottomleft');
 // Initialise theme toggle before GeoJSON fetch (Feature 7)
 initTheme();
 
-// Record finger-down position on the map container.
-// This runs before any Leaflet event so it's always available in onCountryClick.
+// Touch detection on the map container — runs before any Leaflet event.
 map.getContainer().addEventListener('touchstart', function (e) {
-  if (e.touches.length === 1) {
+  _tapCancelled = (e.touches.length !== 1); // multi-touch (pinch) = not a tap
+  if (!_tapCancelled) {
     _touchStartX = e.touches[0].clientX;
     _touchStartY = e.touches[0].clientY;
   }
+}, { passive: true });
+
+map.getContainer().addEventListener('touchmove', function (e) {
+  if (_tapCancelled || e.touches.length !== 1) { _tapCancelled = true; return; }
+  var dx = e.touches[0].clientX - _touchStartX;
+  var dy = e.touches[0].clientY - _touchStartY;
+  if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) _tapCancelled = true;
 }, { passive: true });
 
 // Mobile close button — resets everything and flies back to world view
@@ -1370,19 +1382,13 @@ if (_closeBtn) {
     lockedCode = null; compareCode = null; hoverCode = null;
     clearTimeout(_hoverEnterTimer); clearTimeout(_hoverLeaveTimer);
     updateStyles(); updatePanel();
-    map.flyTo([20, 0], 2, { duration: 0.9, easeLinearity: 0.35 });
+    map.fitBounds(WORLD_BOUNDS, { animate: true, duration: 0.9 });
   });
 }
 
-// Ocean / background click — clear everything and return to world view
-map.on('click', function (e) {
-  // Same pan-guard: ignore if the touch moved too far
-  if (e.originalEvent && e.originalEvent.changedTouches) {
-    var t  = e.originalEvent.changedTouches[0];
-    var dx = t.clientX - _touchStartX;
-    var dy = t.clientY - _touchStartY;
-    if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) return;
-  }
+// Ocean / background click — clear everything and reset to full world view
+map.on('click', function () {
+  if (_tapCancelled) return; // was a pan, not a tap
   lockedCode  = null;
   compareCode = null;
   hoverCode   = null;
@@ -1390,7 +1396,7 @@ map.on('click', function (e) {
   clearTimeout(_hoverLeaveTimer);
   updateStyles();
   updatePanel();
-  map.flyTo([20, 0], 2, { duration: 0.9, easeLinearity: 0.35 });
+  map.fitBounds(WORLD_BOUNDS, { animate: true, duration: 0.9 });
 });
 
 /* ================================================================
@@ -1486,14 +1492,8 @@ function onHoverLeave() {
 }
 
 function onCountryClick(e) {
-  // If this came from a touch, measure finger movement.
-  // Anything over TAP_THRESHOLD pixels = pan gesture → ignore.
-  if (e.originalEvent && e.originalEvent.changedTouches) {
-    var t  = e.originalEvent.changedTouches[0];
-    var dx = t.clientX - _touchStartX;
-    var dy = t.clientY - _touchStartY;
-    if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) return;
-  }
+  // If touchmove fired before this synthetic click, it was a pan — ignore.
+  if (_tapCancelled) return;
   // Stop the map's own click handler from firing (which would clear the lock)
   L.DomEvent.stopPropagation(e);
 
