@@ -1,6 +1,6 @@
 # World Atlas
 
-Interactive map of every country on Earth — hover to explore, click to pin.
+Interactive map of every country on Earth — hover to preview, click to select.
 
 🌐 **[Live demo](https://m83iyer.github.io/world-atlas/)**
 
@@ -8,7 +8,7 @@ Interactive map of every country on Earth — hover to explore, click to pin.
 
 Built with [Leaflet.js](https://leafletjs.com) and vanilla JavaScript. No install needed — just open `index.html` in a browser.
 
-**Requires internet** on first load for map tiles and country data.
+**Requires internet** on first load for country data.
 
 ---
 
