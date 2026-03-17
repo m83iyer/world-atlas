@@ -541,24 +541,7 @@
       100% { background-position: -200% 0; }
     }
 
-    /* ================================================================
-       FLOATING COUNTRY TOOLTIP (Feature 4)
-       ================================================================ */
-    .country-tooltip {
-      background: rgba(18,17,26,0.85);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 4px 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-      letter-spacing: 0.02em;
-    }
 
-    .country-tooltip::before { display: none; }
-    .leaflet-tooltip.country-tooltip { background: rgba(18,17,26,0.85); border: none; }
-    .leaflet-tooltip.country-tooltip::before { display: none; }
 
     /* ================================================================
        PANEL — NO DATA STATE
@@ -1380,15 +1363,6 @@ function bindFeatureEvents(feature, layer) {
     click:     onCountryClick
   });
 
-  // Feature 4: Floating country name tooltip
-  var tooltipName = feature.properties.name || feature.properties['ISO3166-1-Alpha-2'] || '';
-  layer.bindTooltip(tooltipName, {
-    sticky: false,
-    permanent: false,
-    className: 'country-tooltip',
-    direction: 'center',
-    offset: [0, 0]
-  });
 }
 
 // Debounce timers — prevent flicker when cursor skims borders
