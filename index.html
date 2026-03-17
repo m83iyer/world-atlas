@@ -1323,6 +1323,9 @@ let compareCode  = null;
 let geoJsonLayer = null;
 const layersByCode = {};
 
+// Detect touch device once at startup — disables hover entirely on touch.
+var IS_TOUCH = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+
 // Tap vs pan detection for touch devices.
 // _tapCancelled is set true in touchmove the moment the finger slides
 // more than TAP_THRESHOLD pixels. Leaflet's synthetic click fires after
@@ -1359,12 +1362,8 @@ map.zoomControl.setPosition('bottomleft');
 initTheme();
 
 // Touch detection on the map container — runs before any Leaflet event.
-// _touching is true while any finger is on screen; hover is suppressed during this time
-// so panning never triggers flashcard popups via synthetic mouseover events.
-var _touching = false;
-
+// Tracks tap vs pan so onCountryClick can ignore pans.
 map.getContainer().addEventListener('touchstart', function (e) {
-  _touching = true;
   _tapCancelled = (e.touches.length !== 1); // multi-touch (pinch) = not a tap
   if (!_tapCancelled) {
     _touchStartX = e.touches[0].clientX;
@@ -1379,13 +1378,6 @@ map.getContainer().addEventListener('touchmove', function (e) {
   if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) _tapCancelled = true;
 }, { passive: true });
 
-map.getContainer().addEventListener('touchend', function () {
-  _touching = false;
-  // Clear any hover that snuck in during the touch gesture
-  clearTimeout(_hoverEnterTimer);
-  hoverCode = null;
-}, { passive: true });
-
 // Mobile close button — resets everything and flies back to world view
 var _closeBtn = document.getElementById('panel-close-btn');
 if (_closeBtn) {
@@ -1398,8 +1390,10 @@ if (_closeBtn) {
   });
 }
 
-// Ocean / background click — clear everything and reset to full world view
+// Ocean / background click — clear everything and reset to full world view.
+// On touch devices this is a no-op; the close button is the only dismiss path.
 map.on('click', function () {
+  if (IS_TOUCH) return;    // touch: use close button, not ocean tap
   if (_tapCancelled) return; // was a pan, not a tap
   lockedCode  = null;
   compareCode = null;
@@ -1464,12 +1458,12 @@ fetch(GEOJSON_URL)
    BIND MOUSE / TOUCH EVENTS TO EACH COUNTRY POLYGON
    ================================================================ */
 function bindFeatureEvents(feature, layer) {
-  layer.on({
-    mouseover: onHoverEnter,
-    mouseout:  onHoverLeave,
-    click:     onCountryClick
-  });
-
+  // Hover only on mouse devices — touch panning fires synthetic mouseover
+  // events that cause flashcard popups mid-pan.
+  if (!IS_TOUCH) {
+    layer.on({ mouseover: onHoverEnter, mouseout: onHoverLeave });
+  }
+  layer.on({ click: onCountryClick });
 }
 
 // Debounce timers — prevent flicker when cursor skims borders
@@ -1477,7 +1471,6 @@ var _hoverEnterTimer = null;
 var _hoverLeaveTimer = null;
 
 function onHoverEnter(e) {
-  if (_touching) return; // suppress hover during touch — pan triggers synthetic mouseover
   var code = resolveCode(e.target.feature);
   if (code === hoverCode) return;
   // Cancel any pending leave, then wait briefly before committing the enter.
@@ -1492,7 +1485,6 @@ function onHoverEnter(e) {
 }
 
 function onHoverLeave() {
-  if (_touching) return;
   clearTimeout(_hoverEnterTimer);
   // Short grace period — if the cursor enters another country within this
   // window the leave is cancelled and the panel never flickers closed.
