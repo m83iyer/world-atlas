@@ -1323,8 +1323,11 @@ let compareCode  = null;
 let geoJsonLayer = null;
 const layersByCode = {};
 
-// Prevent accidental country selection while panning/zooming on touch
-let _mapMoved = false;
+// Track touch start position so we can measure finger movement.
+// If the finger moved more than TAP_THRESHOLD pixels between touchstart
+// and the resulting click, it was a pan — not a deliberate tap.
+var _touchStartX = 0, _touchStartY = 0;
+var TAP_THRESHOLD = 12; // pixels — anything above this is treated as a pan
 
 /** Returns the ISO code that should drive the UI right now. */
 function getEffectiveCode() {
@@ -1350,11 +1353,14 @@ map.zoomControl.setPosition('bottomleft');
 // Initialise theme toggle before GeoJSON fetch (Feature 7)
 initTheme();
 
-// Detect map panning so we don't treat a drag-end as a country tap
-map.on('dragstart', function () { _mapMoved = true; });
-map.on('dragend',   function () { setTimeout(function () { _mapMoved = false; }, 200); });
-map.on('zoomstart', function () { _mapMoved = true; });
-map.on('zoomend',   function () { setTimeout(function () { _mapMoved = false; }, 200); });
+// Record finger-down position on the map container.
+// This runs before any Leaflet event so it's always available in onCountryClick.
+map.getContainer().addEventListener('touchstart', function (e) {
+  if (e.touches.length === 1) {
+    _touchStartX = e.touches[0].clientX;
+    _touchStartY = e.touches[0].clientY;
+  }
+}, { passive: true });
 
 // Mobile close button — resets everything and flies back to world view
 var _closeBtn = document.getElementById('panel-close-btn');
@@ -1369,7 +1375,14 @@ if (_closeBtn) {
 }
 
 // Ocean / background click — clear everything and return to world view
-map.on('click', function () {
+map.on('click', function (e) {
+  // Same pan-guard: ignore if the touch moved too far
+  if (e.originalEvent && e.originalEvent.changedTouches) {
+    var t  = e.originalEvent.changedTouches[0];
+    var dx = t.clientX - _touchStartX;
+    var dy = t.clientY - _touchStartY;
+    if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) return;
+  }
   lockedCode  = null;
   compareCode = null;
   hoverCode   = null;
@@ -1473,8 +1486,14 @@ function onHoverLeave() {
 }
 
 function onCountryClick(e) {
-  // Ignore touch-end events that were actually a pan/zoom gesture
-  if (_mapMoved) return;
+  // If this came from a touch, measure finger movement.
+  // Anything over TAP_THRESHOLD pixels = pan gesture → ignore.
+  if (e.originalEvent && e.originalEvent.changedTouches) {
+    var t  = e.originalEvent.changedTouches[0];
+    var dx = t.clientX - _touchStartX;
+    var dy = t.clientY - _touchStartY;
+    if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) return;
+  }
   // Stop the map's own click handler from firing (which would clear the lock)
   L.DomEvent.stopPropagation(e);
 
