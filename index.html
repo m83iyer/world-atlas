@@ -612,11 +612,11 @@
        ================================================================ */
     #panel-drag-handle {
       display: none;
-      padding: 10px 0 4px;
+      padding: 14px 0 10px;
       cursor: grab;
       touch-action: none;
       background: var(--bg-panel);
-      border-radius: 12px 12px 0 0;
+      border-radius: 16px 16px 0 0;
     }
     .drag-bar {
       width: 36px;
@@ -686,25 +686,73 @@
     @media (max-width: 768px) {
       :root { --panel-width: 100vw; }
 
+      /* ── Header: logo row + search row ── */
+      #header {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 10px 16px 10px;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .logo { flex: 1; min-width: 0; }
+      .logo-sub { display: none; }
+
+      /* Show header-right on mobile — theme toggle + search */
+      .header-right {
+        display: flex;
+        width: 100%;
+        gap: 8px;
+        order: 2;
+      }
+
+      .hint-dot { display: none; }
+
+      /* Search takes all remaining width */
+      .search-wrapper { flex: 1; }
+
+      #search-input {
+        width: 100%;
+        height: 40px;
+        font-size: 15px;
+      }
+
+      #search-dropdown {
+        width: 100%;
+        left: 0;
+        right: 0;
+      }
+
+      /* ── Bottom sheet panel ── */
       #info-panel {
         top: auto;
         bottom: 0;
-        height: 55vh;
+        height: 50vh;
         width: 100%;
         transform: translateY(110%);
         box-shadow: 0 -4px 30px rgba(0,0,0,0.14);
+        border-radius: 20px 20px 0 0;
+        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, height 0.2s ease;
       }
 
       #info-panel.visible { transform: translateY(0); }
 
-      #panel-drag-handle { display: block; }
-
-      #info-panel {
-        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, height 0.2s ease;
-        border-radius: 16px 16px 0 0;
+      /* ── Drag handle — bigger touch target for kids ── */
+      #panel-drag-handle {
+        display: block;
+        padding: 14px 0 12px;
       }
+      .drag-bar { width: 44px; }
 
-      .header-right { display: none; }
+      /* ── Card content — more readable on small screens ── */
+      .country-name { font-size: 24px; }
+      .kv-val { font-size: 16px; }
+      .kv-key { font-size: 11px; }
+      .section-label { font-size: 11px; }
+      .data-section { padding: 14px 20px; }
+
+      /* Zoom controls away from bottom sheet */
+      .leaflet-control-zoom { margin-bottom: 16px !important; }
     }
   </style>
 </head>
@@ -1998,7 +2046,8 @@ function initDragHandle() {
   var panel  = document.getElementById('info-panel');
   if (!handle) return;
   var startY = 0, startH = 0, dragging = false;
-  var SNAP_HEIGHTS = [0.3, 0.55, 0.82];
+  // Snap positions as fraction of viewport height: peek / mid / tall
+  var SNAP_HEIGHTS = [0.28, 0.50, 0.85];
 
   handle.addEventListener('touchstart', function (e) {
     startY   = e.touches[0].clientY;
